@@ -342,12 +342,12 @@ int main() {
 		else if (cb->rightMouseJustPressed()) {
 			if (selectedPointIndex >= 0) {
 				// If we right-clicked on a vertex, erase it.
-				cpuGeom.verts.erase(cpuGeom.verts.begin() + selectedPointIndex);
-				cpuGeom.cols.erase(cpuGeom.cols.begin() + selectedPointIndex);
+				controlPointcpu.verts.erase(controlPointcpu.verts.begin() + selectedPointIndex);
+				controlPointcpu.cols.erase(controlPointcpu.cols.begin() + selectedPointIndex);
 				selectedPointIndex = -1; // So that we don't drag in next frame.
 
-				gpuGeom.setVerts(cpuGeom.verts);
-				gpuGeom.setCols(cpuGeom.cols);
+				controlPointgpu.setVerts(controlPointcpu.verts);
+				controlPointgpu.setCols(controlPointcpu.cols);
 			}
 		}
 
@@ -401,15 +401,17 @@ int main() {
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 		//if (drawLines) glDrawArrays(GL_LINE_STRIP, 0, GLsizei(cpuGeom.verts.size()));
 
+		//std::vector<glm::vec3> temp;
 
-		std::vector<glm::vec3> temp;
+
 		if (!tempVerts.empty()) {
-			 temp = get_control_points(tempVerts[0], 20);
+			controlPointcpu.verts = get_control_points(tempVerts[0], 200);
 
 			 if (drawLines) {
-				 if (!temp.empty()) {
-					 gpuGeom.setVerts(temp);
-					 glDrawArrays(GL_POINTS, 0, GLsizei(temp.size()));
+				 if (!controlPointcpu.verts.empty()) {
+					 gpuGeom.setVerts(controlPointcpu.verts);
+					 glDrawArrays(GL_POINTS, 0, GLsizei(controlPointcpu.verts.size()));
+
 				 }
 			 }
 		}
@@ -431,7 +433,7 @@ int main() {
 
 		m = controlPointcpu.verts.size() - 1;
 
-		Bspline(controlPointcpu, controlPointgpu, cpuGeom.verts, m, k, ui);
+		Bspline(controlPointcpu, controlPointgpu, controlPointcpu.verts, m, k, ui);
 
 		controlPointgpu.bind();
 		glDrawArrays(GL_LINE_STRIP, 0, GLsizei(controlPointcpu.verts.size()));
