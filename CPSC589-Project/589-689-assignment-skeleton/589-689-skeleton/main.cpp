@@ -234,6 +234,24 @@ private:
 };
 
 
+std::vector<glm::vec3> get_control_points(std::vector<glm::vec3> &line,int smoothness) {
+	std::vector<glm::vec3> result;
+
+	int step_size = smoothness;
+	int index = 0;
+
+	while (index < line.size()) {
+		result.push_back(line[index]);
+		index += step_size;
+	}
+
+	if (result.back() != line.back()) {
+		result.push_back(line.back());
+	}
+
+	return result; 
+}
+
 int main() {
 	Log::debug("Starting main");
 
@@ -260,7 +278,7 @@ int main() {
 	GPU_Geometry controlPointgpu;
 
 	// Variables that ImGui will alter.
-	float pointSize = 0.1f; // Diameter of drawn points
+	float pointSize = 10.0f; // Diameter of drawn points
 	float color[3] = { 1.f, 0.f, 0.f }; // Color of new points
 	bool drawLines = true; // Whether to draw connecting lines
 	int selectedPointIndex = -1; // Used for point dragging & deletion
@@ -275,8 +293,6 @@ int main() {
 	*/
 
 	std::vector<std::vector<glm::vec3>> tempVerts;
-
-	int i = 0;
 	// RENDER LOOP
 	while (!window.shouldClose()) {
 
@@ -383,6 +399,19 @@ int main() {
 		glEnable(GL_FRAMEBUFFER_SRGB);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 		//if (drawLines) glDrawArrays(GL_LINE_STRIP, 0, GLsizei(cpuGeom.verts.size()));
+
+
+		std::vector<glm::vec3> temp;
+		if (!tempVerts.empty()) {
+			 temp = get_control_points(tempVerts[0], 20);
+
+			 if (drawLines) {
+				 if (!temp.empty()) {
+					 gpuGeom.setVerts(temp);
+					 glDrawArrays(GL_POINTS, 0, GLsizei(temp.size()));
+				 }
+			 }
+		}
 
 
 		if (drawLines) {
