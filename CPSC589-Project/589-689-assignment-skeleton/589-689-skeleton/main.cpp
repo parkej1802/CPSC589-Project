@@ -10,6 +10,82 @@
 #include "Shader.h"
 #include <vector>
 
+
+int k = 4;
+int m;
+float ui = 0.01f;
+int delta(float u, const std::vector<float>& knots, int m, int k) {
+	for (int i = 0; i < m + k - 1; i++) {
+		if (u >= knots[i] && u < knots[i + 1]) {
+			return i;
+		}
+	}
+	return -1;
+}
+
+std::vector<float> knotSequence(int m, int k) {
+	int n = k + m;
+	std::vector<float> knotSequence(n + 1);
+
+	for (int i = 0; i < k - 1; i++) {
+		knotSequence[i] = 0.0f;
+	}
+
+	for (int i = 1; i < m - 1; i++) {
+		knotSequence[k - 1 + i] = (float)i / (m - 1);
+	}
+
+	for (int i = n - k + 1; i <= n; i++) {
+		knotSequence[i] = 1.0f;
+	}
+
+	return knotSequence;
+}
+
+
+void Bspline(CPU_Geometry& controlPointcpu, GPU_Geometry& controlPointgpu, std::vector<glm::vec3> E, int m, int k, float ui) {
+	controlPointcpu.verts.clear();
+	if (m < 1) return;
+	if (k > m + 1) return;
+
+
+	std::vector<float> ks = knotSequence(m, k);
+	std::vector<glm::vec3> c(k);
+
+	for (float u = ks[k - 1]; u <= ks[m + 1]; u += ui) {
+
+		int d = delta(u, ks, m, k);
+		if (d >= E.size()) {
+			return;
+		}
+
+		for (int i = 0; i <= k - 1; i++) {
+			c[i] = E[d - i];
+		}
+
+		for (int r = k; r >= 2; r--) {
+			int i = d;
+			for (int s = 0; s <= r - 2; s++) {
+				float omega = (u - ks[i]) / (ks[i + r - 1] - ks[i]);
+				c[s] = omega * c[s] + (1 - omega) * c[s + 1];
+				i--;
+			}
+		}
+		controlPointcpu.verts.push_back(c[0]);
+		controlPointcpu.cols.push_back(glm::vec3(1.f, 1.f, 1.f));
+	}
+
+	if (!controlPointcpu.verts.empty()) {
+		controlPointcpu.verts.push_back(E.back());
+		controlPointcpu.cols.push_back(glm::vec3(1.f, 1.f, 1.f));
+
+	}
+
+	controlPointgpu.setVerts(controlPointcpu.verts);
+	controlPointgpu.setCols(controlPointcpu.cols);
+}
+
+
 // CALLBACKS
 class MyCallbacks : public CallbackInterface {
 
@@ -102,7 +178,7 @@ public:
 		// Go from [0, 1] range to [-1, 1] range.
 		return 2.f * flippedY - glm::vec2(1.f, 1.f);
 	}
-	
+
 	// Takes in a list of points, given in GL's coordinate system,
 	// and a threshold (in screen coordinates) 
 	// and then returns the index of the first point within that distance from
@@ -198,6 +274,9 @@ int main() {
 	CPU_Geometry cpuGeom;
 	GPU_Geometry gpuGeom;
 
+	CPU_Geometry controlPointcpu;
+	GPU_Geometry controlPointgpu;
+
 	// Variables that ImGui will alter.
 	float pointSize = 10.0f; // Diameter of drawn points
 	float color[3] = { 1.f, 0.f, 0.f }; // Color of new points
@@ -231,7 +310,7 @@ int main() {
 			selectedPointIndex = cb->indexOfPointAtCursorPos(cpuGeom.verts, threshold);
 		}
 
-		
+
 		/*
 		if (cb->leftMouseJustPressed()) {
 			if (selectedPointIndex < 0) {
@@ -253,10 +332,11 @@ int main() {
 				gpuGeom.setCols(cpuGeom.cols);
 			}
 		}
+
 		else if (!cpuGeom.verts.empty()) {
 			tempVerts.push_back(cpuGeom.verts);
 			cpuGeom.verts.clear();
-		}	
+		}
 
 		else if (cb->rightMouseJustPressed()) {
 			if (selectedPointIndex >= 0) {
@@ -269,13 +349,14 @@ int main() {
 				gpuGeom.setCols(cpuGeom.cols);
 			}
 		}
-		
+
 		else if (cb->leftMouseActive() && selectedPointIndex >= 0) {
 			// Drag selected point.
 			cpuGeom.verts[selectedPointIndex] = glm::vec3(cb->getCursorPosGL(), 0.f);
 			gpuGeom.setVerts(cpuGeom.verts);
 
 		}
+
 
 		bool change = false; // Whether any ImGui variable's changed.
 
@@ -294,12 +375,15 @@ int main() {
 
 		change |= ImGui::Checkbox("Draw lines", &drawLines);
 
+		change |= ImGui::SliderInt("Curve's Order", &k, 1, 10);
+
+		change |= ImGui::SliderFloat("u", &ui, 0.01f, 0.99f);
+
+		change |= ImGui::Checkbox("Draw lines", &drawLines);
+
 		if (ImGui::Button("clear pts")) {
 			change = true;
-			cpuGeom.verts.clear();
-			cpuGeom.cols.clear();
-			gpuGeom.setVerts(cpuGeom.verts);
-			gpuGeom.setCols(cpuGeom.cols);
+			tempVerts.clear();
 		}
 
 		ImGui::Text("Average %.1f ms/frame (%.1f fps)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
@@ -336,13 +420,19 @@ int main() {
 				glDrawArrays(GL_LINE_STRIP, 0, GLsizei(line.size()));
 			}
 		}
+
 		if (drawLines) {
 			if (!cpuGeom.verts.empty()) {
 				gpuGeom.setVerts(cpuGeom.verts);
 				glDrawArrays(GL_LINE_STRIP, 0, GLsizei(cpuGeom.verts.size()));
 			}
 		}
-		
+
+		m = controlPointcpu.verts.size() - 1;
+
+		Bspline(controlPointcpu, controlPointgpu, cpuGeom.verts, m, k, ui);
+
+
 		//glDrawArrays(GL_POINTS, 0, GLsizei(cpuGeom.verts.size()));
 		glDisable(GL_FRAMEBUFFER_SRGB); // disable sRGB for things like imgui
 
