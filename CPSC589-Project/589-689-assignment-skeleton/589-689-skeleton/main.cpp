@@ -14,6 +14,7 @@
 int k = 4;
 int m;
 float ui = 0.01f;
+
 int delta(float u, const std::vector<float>& knots, int m, int k) {
 	for (int i = 0; i < m + k - 1; i++) {
 		if (u >= knots[i] && u < knots[i + 1]) {
@@ -432,6 +433,8 @@ int main() {
 
 		Bspline(controlPointcpu, controlPointgpu, cpuGeom.verts, m, k, ui);
 
+		controlPointgpu.bind();
+		glDrawArrays(GL_LINE_STRIP, 0, GLsizei(controlPointcpu.verts.size()));
 
 		//glDrawArrays(GL_POINTS, 0, GLsizei(cpuGeom.verts.size()));
 		glDisable(GL_FRAMEBUFFER_SRGB); // disable sRGB for things like imgui
