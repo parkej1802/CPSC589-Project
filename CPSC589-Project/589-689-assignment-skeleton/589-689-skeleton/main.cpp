@@ -103,11 +103,20 @@ public:
 		, screenMouseY(-1.0)
 		, screenWidth(screenWidth)
 		, screenHeight(screenHeight)
+		, angle(0)
 	{}
 
 	virtual void keyCallback(int key, int scancode, int action, int mods) {
 		if (key == GLFW_KEY_R && action == GLFW_PRESS) {
 			shader.recompile();
+		}
+
+		if (key == GLFW_KEY_RIGHT && (action == GLFW_PRESS || action == GLFW_REPEAT)) {
+			angle += 0.01;
+		}
+
+		if (key == GLFW_KEY_LEFT && (action == GLFW_PRESS || action == GLFW_REPEAT)) {
+			angle -= 0.01;
 		}
 	}
 
@@ -163,6 +172,10 @@ public:
 	// Tell the callbacks object a new frame has begun.
 	void incrementFrameCount() {
 		currentFrame++;
+	}
+
+	float getAngle(){
+		return angle;
 	}
 
 	// Converts the cursor position from screen coordinates to GL coordinates
@@ -221,6 +234,8 @@ private:
 	int lastLeftPressedFrame;
 	int lastRightPressedFrame;
 
+	float angle;
+
 	ShaderProgram& shader;
 
 	// Converts GL coordinates to screen coordinates.
@@ -238,20 +253,124 @@ private:
 std::vector<glm::vec3> get_control_points(std::vector<glm::vec3> &line,int smoothness) {
 	std::vector<glm::vec3> result;
 
-	int step_size = smoothness;
+	int step_size = line.size() / smoothness;
 	int index = 0;
 
 	while (index < line.size()) {
 		result.push_back(line[index]);
 		index += step_size;
 	}
-
-	if (result.back() != line.back()) {
-		result.push_back(line.back());
-	}
-
 	return result; 
 }
+
+std::vector<glm::vec3> flattenLineVerts(std::vector<std::vector<glm::vec3>> &lineVerts) {
+	std::vector<glm::vec3> flattenedVerts;
+
+	for (const auto& vertGroup : lineVerts) {
+		flattenedVerts.insert(flattenedVerts.end(), vertGroup.begin(), vertGroup.end());
+	}
+
+	return flattenedVerts;
+}
+
+
+void draw_cross_sections(std::shared_ptr<MyCallbacks> &cb,
+	std::vector<std::vector<glm::vec3>> &lineVerts,
+	CPU_Geometry &cpuGeom,
+	GPU_Geometry &gpuGeom,
+	int &cross_section) {
+
+	cpuGeom.verts.clear();
+	cpuGeom.cols.clear();
+
+	if (cb->leftMouseActive()) {
+		lineVerts[cross_section].push_back(glm::vec3(cb->getCursorPosGL(), 0.f));
+		cpuGeom.verts = flattenLineVerts(lineVerts);
+
+		for (int i = 0; i < 3; i++) {
+			glm::vec3 color;
+			if (i == 0) {
+				color = glm::vec3(1, 0, 0);
+			}
+			else if (i == 1) {
+				color = glm::vec3(0, 1, 0);
+			}
+			else {
+				color = glm::vec3(0, 0, 1);
+			}
+			for (int j = 0; j < lineVerts[i].size(); j++) {
+				cpuGeom.cols.push_back(color);
+			}
+		}
+		gpuGeom.setVerts(cpuGeom.verts);
+		gpuGeom.setCols(cpuGeom.cols);
+	}
+}
+
+void draw_lines(std::vector<std::vector<glm::vec3>>& lineVerts) {
+	int start_index = 0;
+
+	for (int i = 0; i < 3; i++) {
+		glDrawArrays(GL_LINE_STRIP, start_index, GLsizei(lineVerts[i].size()));
+		start_index += lineVerts[i].size();
+	}
+}
+
+void combine(std::vector<std::vector<glm::vec3>> &lineVerts,
+	CPU_Geometry &cpuGeom,
+	GPU_Geometry &gpuGeom,
+	std::shared_ptr<MyCallbacks> &cb){
+		cpuGeom.verts.clear();
+		cpuGeom.cols.clear();
+
+		float angle = cb -> getAngle(); 
+		glm::mat3 R = glm::mat3(cos(-angle),0, sin(-angle),
+								0,1,0,
+								-sin(-angle),0,cos(-angle));
+
+		std::vector<glm::vec3> flattenedVerts;
+		for (int i=0; i <3; i++) {
+			for(int j=0;j<lineVerts[i].size();j++){
+				if(i == 0){
+					glm::vec3 coord = lineVerts[i][j] * R;
+					flattenedVerts.push_back(coord);
+				}else if(i == 1){
+					float x = lineVerts[i][j].x;
+					float y = lineVerts[i][j].y;
+					glm::vec3 side = glm::vec3(0.f,y,x);
+					side = side * R;
+					flattenedVerts.push_back(side);
+				}else{
+					float x = lineVerts[i][j].x;
+					float y = lineVerts[i][j].y;
+					glm::vec3 top = glm::vec3(x,0.f,y);
+					top = top * R;
+					flattenedVerts.push_back(top);
+				}
+			}
+		}
+
+		cpuGeom.verts = flattenedVerts;
+
+		for (int i = 0; i < 3; i++) {
+			glm::vec3 color;
+			if (i == 0) {
+				color = glm::vec3(1, 0, 0);
+			}
+			else if (i == 1) {
+				color = glm::vec3(0, 1, 0);
+			}
+			else {
+				color = glm::vec3(0, 0, 1);
+			}
+			for (int j = 0; j < lineVerts[i].size(); j++) {
+				cpuGeom.cols.push_back(color);
+			}
+		}
+		gpuGeom.setVerts(cpuGeom.verts);
+		gpuGeom.setCols(cpuGeom.cols);
+
+	}
 
 int main() {
 	Log::debug("Starting main");
@@ -284,16 +403,9 @@ int main() {
 	bool drawLines = true; // Whether to draw connecting lines
 	int selectedPointIndex = -1; // Used for point dragging & deletion
 
-	// Variables for the commented-out widgets.
-	/*
-	int sampleInt = 0;
-	float sampleFloat = 0.f;
-	float sampleDragFloat = 0.f;
-	float sampleAngle = 0.f;
-	float sampleFloatPair[2] = { 1.f, 2.f };
-	*/
+	int cross_section = -1; 
 
-	std::vector<std::vector<glm::vec3>> tempVerts;
+	std::vector<std::vector<glm::vec3>> lineVerts(3);
 	// RENDER LOOP
 	while (!window.shouldClose()) {
 
@@ -311,34 +423,20 @@ int main() {
 			selectedPointIndex = cb->indexOfPointAtCursorPos(cpuGeom.verts, threshold);
 		}
 
+		/* CROSS SECTION */
+		// when the left button gets pressed increase the cross_section
+		if (cb->leftMouseJustPressed()) {
+			if (cross_section < 3) cross_section++;
+		}
+
+		if(cross_section < 3){
+			draw_cross_sections(cb, lineVerts, cpuGeom, gpuGeom, cross_section);
+		}else{
+			combine(lineVerts, cpuGeom, gpuGeom, cb);
+		}
+		
 
 		/*
-		if (cb->leftMouseJustPressed()) {
-			if (selectedPointIndex < 0) {
-				// If we just clicked empty space, add new point.
-				cpuGeom.verts.push_back(glm::vec3(cb->getCursorPosGL(), 0.f));
-				cpuGeom.cols.push_back(glm::vec3(color[0], color[1], color[2]));
-
-				gpuGeom.setVerts(cpuGeom.verts);
-				gpuGeom.setCols(cpuGeom.cols);
-			}
-		}
-		*/
-
-		if (cb->leftMouseActive()) {
-			if (selectedPointIndex < 0) {
-				cpuGeom.verts.push_back(glm::vec3(cb->getCursorPosGL(), 0.f));
-				cpuGeom.cols.push_back(glm::vec3(color[0], color[1], color[2]));
-				gpuGeom.setVerts(cpuGeom.verts);
-				gpuGeom.setCols(cpuGeom.cols);
-			}
-		}
-
-		else if (!cpuGeom.verts.empty()) {
-			tempVerts.push_back(cpuGeom.verts);
-			cpuGeom.verts.clear();
-		}
-
 		else if (cb->rightMouseJustPressed()) {
 			if (selectedPointIndex >= 0) {
 				// If we right-clicked on a vertex, erase it.
@@ -357,6 +455,7 @@ int main() {
 			gpuGeom.setVerts(cpuGeom.verts);
 
 		}
+		*/
 
 
 		bool change = false; // Whether any ImGui variable's changed.
@@ -384,7 +483,7 @@ int main() {
 
 		if (ImGui::Button("clear pts")) {
 			change = true;
-			tempVerts.clear();
+			lineVerts.clear();
 		}
 
 		ImGui::Text("Average %.1f ms/frame (%.1f fps)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
@@ -403,9 +502,9 @@ int main() {
 
 		//std::vector<glm::vec3> temp;
 
-
-		if (!tempVerts.empty()) {
-			controlPointcpu.verts = get_control_points(tempVerts[0], 200);
+		/*
+		if (!lineVerts.empty()) {
+			controlPointcpu.verts = get_control_points(lineVerts[0], 30);
 
 			 if (drawLines) {
 				 if (!controlPointcpu.verts.empty()) {
@@ -415,30 +514,33 @@ int main() {
 				 }
 			 }
 		}
+		*/
 
+		// if (drawLines) {
+		// 	for (const auto& line : lineVerts) {
+		// 		gpuGeom.setVerts(line);
+		// 		glDrawArrays(GL_LINE_STRIP, 0, GLsizei(line.size()));
+		// 	}
+		// }
 
-		if (drawLines) {
-			for (const auto& line : tempVerts) {
-				gpuGeom.setVerts(line);
-				glDrawArrays(GL_LINE_STRIP, 0, GLsizei(line.size()));
-			}
-		}
+		// if (drawLines) {
+		// 	if (!cpuGeom.verts.empty()) {
+		// 		gpuGeom.setVerts(cpuGeom.verts);
+		// 		glDrawArrays(GL_LINE_STRIP, 0, GLsizei(cpuGeom.verts.size()));
+		// 	}
+		// }
+		
+		//m = controlPointcpu.verts.size() - 1;
 
-		if (drawLines) {
-			if (!cpuGeom.verts.empty()) {
-				gpuGeom.setVerts(cpuGeom.verts);
-				glDrawArrays(GL_LINE_STRIP, 0, GLsizei(cpuGeom.verts.size()));
-			}
-		}
+		//Bspline(controlPointcpu, controlPointgpu, controlPointcpu.verts, m, k, ui);
 
-		m = controlPointcpu.verts.size() - 1;
+		// controlPointgpu.bind();
+		// glDrawArrays(GL_LINE_STRIP, 0, GLsizei(controlPointcpu.verts.size()));
 
-		Bspline(controlPointcpu, controlPointgpu, controlPointcpu.verts, m, k, ui);
+		// glDrawArrays(GL_POINTS, 0, GLsizei(cpuGeom.verts.size()));
 
-		controlPointgpu.bind();
-		glDrawArrays(GL_LINE_STRIP, 0, GLsizei(controlPointcpu.verts.size()));
+		draw_lines(lineVerts);
 
-		//glDrawArrays(GL_POINTS, 0, GLsizei(cpuGeom.verts.size()));
 		glDisable(GL_FRAMEBUFFER_SRGB); // disable sRGB for things like imgui
 
 		ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
