@@ -103,7 +103,8 @@ public:
 		, screenMouseY(-1.0)
 		, screenWidth(screenWidth)
 		, screenHeight(screenHeight)
-		, angle(0)
+		, x_angle(0)
+		, y_angle(0)
 	{}
 
 	virtual void keyCallback(int key, int scancode, int action, int mods) {
@@ -112,11 +113,19 @@ public:
 		}
 
 		if (key == GLFW_KEY_RIGHT && (action == GLFW_PRESS || action == GLFW_REPEAT)) {
-			angle += 0.01;
+			x_angle += 0.01;
 		}
 
 		if (key == GLFW_KEY_LEFT && (action == GLFW_PRESS || action == GLFW_REPEAT)) {
-			angle -= 0.01;
+			x_angle -= 0.01;
+		}
+
+		if (key == GLFW_KEY_UP && (action == GLFW_PRESS || action == GLFW_REPEAT)) {
+			y_angle += 0.01;
+		}
+
+		if (key == GLFW_KEY_DOWN && (action == GLFW_PRESS || action == GLFW_REPEAT)) {
+			y_angle -= 0.01;
 		}
 	}
 
@@ -174,8 +183,12 @@ public:
 		currentFrame++;
 	}
 
-	float getAngle(){
-		return angle;
+	float getXAngle(){
+		return x_angle;
+	}
+
+	float getYAngle() {
+		return y_angle;
 	}
 
 	// Converts the cursor position from screen coordinates to GL coordinates
@@ -234,7 +247,8 @@ private:
 	int lastLeftPressedFrame;
 	int lastRightPressedFrame;
 
-	float angle;
+	float x_angle;
+	float y_angle;
 
 	ShaderProgram& shader;
 
@@ -323,28 +337,36 @@ void combine(std::vector<std::vector<glm::vec3>> &lineVerts,
 		cpuGeom.verts.clear();
 		cpuGeom.cols.clear();
 
-		float angle = cb -> getAngle(); 
-		glm::mat3 R = glm::mat3(cos(-angle),0, sin(-angle),
+		float x_angle = cb -> getXAngle(); 
+		glm::mat3 X_R = glm::mat3(cos(-x_angle),0, sin(-x_angle),
 								0,1,0,
-								-sin(-angle),0,cos(-angle));
+								-sin(-x_angle),0,cos(-x_angle));
+
+		float y_angle = cb->getYAngle();
+		glm::mat3 Y_R = glm::mat3(1, 0,0,
+								0, cos(y_angle), -sin(y_angle),
+								0, sin(y_angle), cos(y_angle));
 
 		std::vector<glm::vec3> flattenedVerts;
 		for (int i=0; i <3; i++) {
 			for(int j=0;j<lineVerts[i].size();j++){
 				if(i == 0){
-					glm::vec3 coord = lineVerts[i][j] * R;
+					glm::vec3 coord = lineVerts[i][j] * X_R;
+					coord = coord * Y_R;
 					flattenedVerts.push_back(coord);
 				}else if(i == 1){
 					float x = lineVerts[i][j].x;
 					float y = lineVerts[i][j].y;
 					glm::vec3 side = glm::vec3(0.f,y,x);
-					side = side * R;
+					side = side * X_R;
+					side = side * Y_R;
 					flattenedVerts.push_back(side);
 				}else{
 					float x = lineVerts[i][j].x;
 					float y = lineVerts[i][j].y;
 					glm::vec3 top = glm::vec3(x,0.f,y);
-					top = top * R;
+					top = top * X_R;
+					top = top * Y_R;
 					flattenedVerts.push_back(top);
 				}
 			}
