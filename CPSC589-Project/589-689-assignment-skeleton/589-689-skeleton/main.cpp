@@ -131,22 +131,6 @@ public:
 			shader.recompile();
 			updateUniformLocations();
 		}
-
-		if (key == GLFW_KEY_RIGHT && (action == GLFW_PRESS || action == GLFW_REPEAT)) {
-			x_angle += 0.01;
-		}
-
-		if (key == GLFW_KEY_LEFT && (action == GLFW_PRESS || action == GLFW_REPEAT)) {
-			x_angle -= 0.01;
-		}
-
-		if (key == GLFW_KEY_UP && (action == GLFW_PRESS || action == GLFW_REPEAT)) {
-			y_angle += 0.01;
-		}
-
-		if (key == GLFW_KEY_DOWN && (action == GLFW_PRESS || action == GLFW_REPEAT)) {
-			y_angle -= 0.01;
-		}
 	}
 
 	virtual void mouseButtonCallback(int button, int action, int mods) {
@@ -413,8 +397,8 @@ void combine(
 
 	float y_angle = cb->getYAngle();
 	glm::mat3 Y_R = glm::mat3(1, 0,0,
-							0, cos(y_angle), -sin(y_angle),
-							0, sin(y_angle), cos(y_angle));
+							0, cos(-y_angle), -sin(-y_angle),
+							0, sin(-y_angle), cos(-y_angle));
 
 	std::vector<glm::vec3> flattenedVerts;
 	for (int i=0; i <3; i++) {
@@ -494,6 +478,7 @@ void draw(
 		cross_section++;
 	}
 	else {
+		/*
 		combine(cb, bsplineVerts, bsplineCurveCpu);
 		gpuGeom.setVerts(bsplineCurveCpu.verts);
 		gpuGeom.setCols(bsplineCurveCpu.cols);
@@ -502,8 +487,8 @@ void draw(
 			glDrawArrays(GL_LINE_STRIP, start_index, GLsizei(bsplineVerts[i].size()));
 			start_index += bsplineVerts[i].size();
 		}
-
-		/*
+		*/
+		
 		// show cross sections in 3D
 		combine(cb, lineVerts, lineCpu);
 		gpuGeom.setVerts(lineCpu.verts);
@@ -513,7 +498,7 @@ void draw(
 			glDrawArrays(GL_LINE_STRIP, start_index, GLsizei(lineVerts[i].size()));
 			start_index += lineVerts[i].size();
 		}
-		*/
+		
 	}
 
 	return;
@@ -649,7 +634,7 @@ int main() {
 			//cb->updateShadingUniforms(lightPos, lightCol, diffuseCol, ambientStrength, texExistence);
 		}
 		cb->viewPipeline();
-
+		
 		glPointSize(pointSize);
 
 		glEnable(GL_FRAMEBUFFER_SRGB);
