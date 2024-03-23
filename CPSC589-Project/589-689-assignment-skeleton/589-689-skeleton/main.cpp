@@ -109,7 +109,9 @@ public:
 
 	virtual void keyCallback(int key, int scancode, int action, int mods) {
 		if (key == GLFW_KEY_R && action == GLFW_PRESS) {
-			shader.recompile();
+			x_angle = 0.0f;
+			y_angle = 0.0f;
+			//shader.recompile();
 		}
 
 		if (key == GLFW_KEY_RIGHT && (action == GLFW_PRESS || action == GLFW_REPEAT)) {
@@ -263,7 +265,7 @@ private:
 	}
 };
 
-
+// get control points of a line user provided
 std::vector<glm::vec3> get_control_points(std::vector<glm::vec3> &line,int smoothness) {
 	std::vector<glm::vec3> result;
 
@@ -277,6 +279,7 @@ std::vector<glm::vec3> get_control_points(std::vector<glm::vec3> &line,int smoot
 	return result; 
 }
 
+// flatten all line vectors to one vector
 std::vector<glm::vec3> flattenLineVerts(std::vector<std::vector<glm::vec3>> &lineVerts) {
 	std::vector<glm::vec3> flattenedVerts;
 
@@ -287,49 +290,58 @@ std::vector<glm::vec3> flattenLineVerts(std::vector<std::vector<glm::vec3>> &lin
 	return flattenedVerts;
 }
 
-
+// let user provide cross sections
 void draw_cross_sections(std::shared_ptr<MyCallbacks> &cb,
 	std::vector<std::vector<glm::vec3>> &lineVerts,
 	CPU_Geometry &cpuGeom,
-	GPU_Geometry &gpuGeom,
 	int &cross_section) {
 
-	cpuGeom.verts.clear();
-	cpuGeom.cols.clear();
-
 	if (cb->leftMouseActive()) {
+		// load cpu geometry
 		lineVerts[cross_section].push_back(glm::vec3(cb->getCursorPosGL(), 0.f));
 		cpuGeom.verts = flattenLineVerts(lineVerts);
 
-		for (int i = 0; i < 3; i++) {
-			glm::vec3 color;
-			if (i == 0) {
-				color = glm::vec3(1, 0, 0);
-			}
-			else if (i == 1) {
-				color = glm::vec3(0, 1, 0);
-			}
-			else {
-				color = glm::vec3(0, 0, 1);
-			}
-			for (int j = 0; j < lineVerts[i].size(); j++) {
-				cpuGeom.cols.push_back(color);
-			}
+		// load cpu geometry colors
+		glm::vec3 red = glm::vec3(1, 0, 0);
+		glm::vec3 green = glm::vec3(0, 1, 0);
+		glm::vec3 blue = glm::vec3(0, 0, 1);
+
+		if (cross_section == 0) {
+			cpuGeom.cols.push_back(red);
 		}
-		gpuGeom.setVerts(cpuGeom.verts);
-		gpuGeom.setCols(cpuGeom.cols);
+		else if (cross_section == 1) {
+			cpuGeom.cols.push_back(blue);
+		}
+		else {
+			cpuGeom.cols.push_back(green);
+		}
 	}
+
+	return;
 }
 
-void draw_lines(std::vector<std::vector<glm::vec3>>& lineVerts) {
+// draw line verts loaded in gpu geometry
+void draw_lines(std::vector<std::vector<glm::vec3>>& lineVerts, CPU_Geometry& cpuGeom, GPU_Geometry& gpuGeom) {
 	int start_index = 0;
 
+	// load user provided lines to the gpu
+	gpuGeom.setVerts(cpuGeom.verts);
+	gpuGeom.setCols(cpuGeom.cols);
+	
 	for (int i = 0; i < 3; i++) {
 		glDrawArrays(GL_LINE_STRIP, start_index, GLsizei(lineVerts[i].size()));
 		start_index += lineVerts[i].size();
 	}
+
+	// load bspline curves to the gpu
+
+	// load control points to the gpu
+
+	return;
 }
 
+// after getting all cross sections from the user
+// show the user cross sections in 3D
 void combine(std::vector<std::vector<glm::vec3>> &lineVerts,
 	CPU_Geometry &cpuGeom,
 	GPU_Geometry &gpuGeom,
@@ -389,9 +401,7 @@ void combine(std::vector<std::vector<glm::vec3>> &lineVerts,
 				cpuGeom.cols.push_back(color);
 			}
 		}
-		gpuGeom.setVerts(cpuGeom.verts);
-		gpuGeom.setCols(cpuGeom.cols);
-
+		return;
 	}
 
 int main() {
@@ -414,10 +424,12 @@ int main() {
 
 	// GEOMETRY
 	CPU_Geometry cpuGeom;
+	CPU_Geometry controlPointcpu;
+	CPU_Geometry bsplinecpu;
+
 	GPU_Geometry gpuGeom;
 
-	CPU_Geometry controlPointcpu;
-	GPU_Geometry controlPointgpu;
+
 
 	// Variables that ImGui will alter.
 	float pointSize = 10.0f; // Diameter of drawn points
@@ -425,9 +437,14 @@ int main() {
 	bool drawLines = true; // Whether to draw connecting lines
 	int selectedPointIndex = -1; // Used for point dragging & deletion
 
-	int cross_section = -1; 
 
+	// variables for cross sections
+	int cross_section = -1; 
 	std::vector<std::vector<glm::vec3>> lineVerts(3);
+	std::vector<std::vector<glm::vec3>> control_points(3);
+	std::vector<std::vector<glm::vec3>> bsplineCurves(3);
+		
+
 	// RENDER LOOP
 	while (!window.shouldClose()) {
 
@@ -452,7 +469,7 @@ int main() {
 		}
 
 		if(cross_section < 3){
-			draw_cross_sections(cb, lineVerts, cpuGeom, gpuGeom, cross_section);
+			draw_cross_sections(cb, lineVerts, cpuGeom, cross_section);
 		}else{
 			combine(lineVerts, cpuGeom, gpuGeom, cb);
 		}
@@ -561,7 +578,7 @@ int main() {
 
 		// glDrawArrays(GL_POINTS, 0, GLsizei(cpuGeom.verts.size()));
 
-		draw_lines(lineVerts);
+		draw_lines(lineVerts, cpuGeom, gpuGeom);
 
 		glDisable(GL_FRAMEBUFFER_SRGB); // disable sRGB for things like imgui
 
