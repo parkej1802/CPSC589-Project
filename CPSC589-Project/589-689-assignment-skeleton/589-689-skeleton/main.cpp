@@ -1,4 +1,10 @@
 #include <iostream>
+#include <string>
+#include <list>
+#include <vector>
+#include <limits>
+#include <functional>
+#include <unordered_map>
 
 // Window.h `#include`s ImGui, GLFW, and glad in correct order.
 #include "Window.h"
@@ -8,8 +14,10 @@
 #include "Log.h"
 #include "ShaderProgram.h"
 #include "Shader.h"
-#include <vector>
+#include "Camera.h"
 
+#include "glm/glm.hpp"
+#include "glm/gtc/type_ptr.hpp"
 
 int k = 4;
 int m;
@@ -105,13 +113,20 @@ public:
 		, screenHeight(screenHeight)
 		, x_angle(0)
 		, y_angle(0)
-	{}
+		, camera(glm::radians(45.f), glm::radians(45.f), 3.0)
+		, rightMouseDown(false)
+		, aspect(1.0f)
+
+	{
+		updateUniformLocations();
+	}
 
 	virtual void keyCallback(int key, int scancode, int action, int mods) {
 		if (key == GLFW_KEY_R && action == GLFW_PRESS) {
 			x_angle = 0.0f;
 			y_angle = 0.0f;
-			//shader.recompile();
+			shader.recompile();
+			updateUniformLocations();
 		}
 
 		if (key == GLFW_KEY_RIGHT && (action == GLFW_PRESS || action == GLFW_REPEAT)) {
@@ -135,6 +150,7 @@ public:
 		// If we click the mouse on the ImGui window, we don't want to log that
 		// here. But if we RELEASE the mouse over the window, we do want to
 		// know that!
+		
 		auto& io = ImGui::GetIO();
 		if (io.WantCaptureMouse && action == GLFW_PRESS) return;
 
@@ -143,12 +159,20 @@ public:
 			leftMouseActiveVal = true;
 			lastLeftPressedFrame = currentFrame;
 		}
+		/*
 		if (button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_PRESS) {
 			lastRightPressedFrame = currentFrame;
 		}
+		*/
 
 		if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_RELEASE) {
 			leftMouseActiveVal = false;
+		}
+
+
+		if (button == GLFW_MOUSE_BUTTON_RIGHT) {
+			if (action == GLFW_PRESS)			rightMouseDown = true;
+			else if (action == GLFW_RELEASE)	rightMouseDown = false;
 		}
 	}
 
@@ -157,12 +181,40 @@ public:
 	virtual void windowSizeCallback(int width, int height) {
 		screenWidth = width;
 		screenHeight = height;
+		aspect = float(width) / float(height);
 	}
 
 	// Sets the new cursor position, in screen coordinates
 	virtual void cursorPosCallback(double xpos, double ypos) {
-		screenMouseX = xpos;
-		screenMouseY = ypos;
+		if (rightMouseDown) { 
+			float xoffset = xpos - screenMouseX;
+			float yoffset = ypos - screenMouseY;
+
+			const float sensitivity = 0.003f;
+
+			x_angle += xoffset * sensitivity;
+			y_angle += yoffset * sensitivity;
+
+			screenMouseX = xpos;
+			screenMouseY = ypos;
+		}
+		else {
+			screenMouseX = xpos;
+			screenMouseY = ypos;
+		}
+	}
+
+	virtual void scrollCallback(double xoffset, double yoffset) {
+		camera.incrementR(yoffset);
+	}
+
+	void viewPipeline() {
+		glm::mat4 M = glm::mat4(1.0);
+		glm::mat4 V = camera.getView();
+		glm::mat4 P = glm::perspective(glm::radians(45.0f), aspect, 0.01f, 1000.f);
+		glUniformMatrix4fv(mLoc, 1, GL_FALSE, glm::value_ptr(M));
+		glUniformMatrix4fv(vLoc, 1, GL_FALSE, glm::value_ptr(V));
+		glUniformMatrix4fv(pLoc, 1, GL_FALSE, glm::value_ptr(P));
 	}
 
 	// Whether the left mouse was pressed down this frame.
@@ -235,7 +287,23 @@ public:
 		return -1; // No point within threshold found.
 	}
 
+	Camera camera;
+
 private:
+
+	void updateUniformLocations() {
+		mLoc = glGetUniformLocation(shader, "M");
+		vLoc = glGetUniformLocation(shader, "V");
+		pLoc = glGetUniformLocation(shader, "P");;
+		/*
+		lightPosLoc = glGetUniformLocation(shader, "lightPos");;
+		lightColLoc = glGetUniformLocation(shader, "lightCol");;
+		diffuseColLoc = glGetUniformLocation(shader, "diffuseCol");;
+		ambientStrengthLoc = glGetUniformLocation(shader, "ambientStrength");;
+		texExistenceLoc = glGetUniformLocation(shader, "texExistence");;
+		*/
+	}
+
 	int screenWidth;
 	int screenHeight;
 
@@ -263,6 +331,14 @@ private:
 		glm::vec2 screenPos = flippedY * glm::vec2(screenWidth, screenHeight);
 		return screenPos;
 	}
+
+	bool rightMouseDown;
+
+	float aspect;
+
+	GLint mLoc;
+	GLint vLoc;
+	GLint pLoc;
 };
 
 // get control points of a line user provided
@@ -468,33 +544,13 @@ int main() {
 			if (cross_section < 3) cross_section++;
 		}
 
-		if(cross_section < 3){
+		if (cross_section < 3) {
 			draw_cross_sections(cb, lineVerts, cpuGeom, cross_section);
-		}else{
+		}
+		else {
 			combine(lineVerts, cpuGeom, gpuGeom, cb);
 		}
-		
 
-		/*
-		else if (cb->rightMouseJustPressed()) {
-			if (selectedPointIndex >= 0) {
-				// If we right-clicked on a vertex, erase it.
-				controlPointcpu.verts.erase(controlPointcpu.verts.begin() + selectedPointIndex);
-				controlPointcpu.cols.erase(controlPointcpu.cols.begin() + selectedPointIndex);
-				selectedPointIndex = -1; // So that we don't drag in next frame.
-
-				controlPointgpu.setVerts(controlPointcpu.verts);
-				controlPointgpu.setCols(controlPointcpu.cols);
-			}
-		}
-
-		else if (cb->leftMouseActive() && selectedPointIndex >= 0) {
-			// Drag selected point.
-			cpuGeom.verts[selectedPointIndex] = glm::vec3(cb->getCursorPosGL(), 0.f);
-			gpuGeom.setVerts(cpuGeom.verts);
-
-		}
-		*/
 
 
 		bool change = false; // Whether any ImGui variable's changed.
@@ -533,50 +589,16 @@ int main() {
 		shader.use();
 		gpuGeom.bind();
 
+		if (change)
+		{
+			//cb->updateShadingUniforms(lightPos, lightCol, diffuseCol, ambientStrength, texExistence);
+		}
+		cb->viewPipeline();
+
 		glPointSize(pointSize);
 
 		glEnable(GL_FRAMEBUFFER_SRGB);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-		//if (drawLines) glDrawArrays(GL_LINE_STRIP, 0, GLsizei(cpuGeom.verts.size()));
-
-		//std::vector<glm::vec3> temp;
-
-		/*
-		if (!lineVerts.empty()) {
-			controlPointcpu.verts = get_control_points(lineVerts[0], 30);
-
-			 if (drawLines) {
-				 if (!controlPointcpu.verts.empty()) {
-					 gpuGeom.setVerts(controlPointcpu.verts);
-					 glDrawArrays(GL_POINTS, 0, GLsizei(controlPointcpu.verts.size()));
-
-				 }
-			 }
-		}
-		*/
-
-		// if (drawLines) {
-		// 	for (const auto& line : lineVerts) {
-		// 		gpuGeom.setVerts(line);
-		// 		glDrawArrays(GL_LINE_STRIP, 0, GLsizei(line.size()));
-		// 	}
-		// }
-
-		// if (drawLines) {
-		// 	if (!cpuGeom.verts.empty()) {
-		// 		gpuGeom.setVerts(cpuGeom.verts);
-		// 		glDrawArrays(GL_LINE_STRIP, 0, GLsizei(cpuGeom.verts.size()));
-		// 	}
-		// }
-		
-		//m = controlPointcpu.verts.size() - 1;
-
-		//Bspline(controlPointcpu, controlPointgpu, controlPointcpu.verts, m, k, ui);
-
-		// controlPointgpu.bind();
-		// glDrawArrays(GL_LINE_STRIP, 0, GLsizei(controlPointcpu.verts.size()));
-
-		// glDrawArrays(GL_POINTS, 0, GLsizei(cpuGeom.verts.size()));
 
 		draw_lines(lineVerts, cpuGeom, gpuGeom);
 

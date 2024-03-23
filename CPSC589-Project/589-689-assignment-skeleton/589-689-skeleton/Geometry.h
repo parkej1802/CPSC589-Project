@@ -43,13 +43,9 @@ private:
 	VertexBuffer colBuffer;
 };
 
-/*
-// List of vertices and colour using std::vector and glm::vec3
-struct CPU_Geometry {
-	std::vector<std::vector<glm::vec3>> verts;
-	std::vector<std::vector<glm::vec3>> cols;
-};
 
+
+/*
 
 // VAO and two VBOs for storing vertices and colours, respectively
 class GPU_Geometry {

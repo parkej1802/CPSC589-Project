@@ -23,5 +23,16 @@ public:
 
 private:
 	VertexBufferHandle bufferID;
+
+	// The use of this bool is to only enable or disable "AttribArray" when
+	// absolutely required. It assumes that no other areas of the code will
+	// be touching the respective "AttribArray" at this index for the VAO
+	// that this buffer is part of. If your code breaks that assumption,
+	// then you may want to remove this bool and work something else out.
+	bool attribArrayEnabled;
+
+	GLuint attribIndex;
+	GLint attribSize;
+	GLenum attribDataType;
 };
 

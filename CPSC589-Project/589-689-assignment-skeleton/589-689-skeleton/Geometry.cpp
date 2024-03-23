@@ -1,3 +1,5 @@
+
+
 #include "Geometry.h"
 
 #include <utility>
@@ -18,6 +20,8 @@ void GPU_Geometry::setVerts(const std::vector<glm::vec3>& verts) {
 void GPU_Geometry::setCols(const std::vector<glm::vec3>& cols) {
 	colBuffer.uploadData(sizeof(glm::vec3) * cols.size(), cols.data(), GL_STATIC_DRAW);
 }
+
+
 
 /*
 #include "Geometry.h"
@@ -44,6 +48,6 @@ void GPU_Geometry::setCols(const std::vector<std::vector<glm::vec3>>& cols) {
 	for (const auto& c : cols) {
 		size_t cSize = c.size() * sizeof(glm::vec3);
 		colBuffer.uploadData(cSize, c.data(), GL_DYNAMIC_DRAW);
+	}
 }
-
 */
