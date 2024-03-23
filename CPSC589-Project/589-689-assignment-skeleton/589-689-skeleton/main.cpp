@@ -323,98 +323,70 @@ void draw_cross_sections(
 	return;
 }
 
-// draw line verts loaded in gpu geometry
-void draw_lines(std::vector<std::vector<glm::vec3>>& lineVerts, CPU_Geometry& cpuGeom,
-				CPU_Geometry& grid, GPU_Geometry& gpuGeom, int& cross_section) {
-
-	if (cross_section < 3) {
-		// draw grid first
-		gpuGeom.setVerts(grid.verts);
-		gpuGeom.setCols(grid.cols);
-		glDrawArrays(GL_LINE_STRIP, 0, GLsizei(2));
-		glDrawArrays(GL_LINE_STRIP, 2, GLsizei(2));
-	}
-	
-	int start_index = 0;
-	// load user provided lines to the gpu
-	gpuGeom.setVerts(cpuGeom.verts);
-	gpuGeom.setCols(cpuGeom.cols);
-	
-	for (int i = 0; i < 3; i++) {
-		glDrawArrays(GL_LINE_STRIP, start_index, GLsizei(lineVerts[i].size()));
-		start_index += lineVerts[i].size();
-	}
-
-	// load bspline curves to the gpu
-
-	// load control points to the gpu
-
-	return;
-}
-
 // after getting all cross sections from the user
 // show the user cross sections in 3D
 void combine(
 	std::shared_ptr<MyCallbacks>& cb,
 	std::vector<std::vector<glm::vec3>>& lineVerts, CPU_Geometry& cpuGeom){
-		cpuGeom.verts.clear();
-		cpuGeom.cols.clear();
 
-		float x_angle = cb -> getXAngle(); 
-		glm::mat3 X_R = glm::mat3(cos(-x_angle),0, sin(-x_angle),
-								0,1,0,
-								-sin(-x_angle),0,cos(-x_angle));
+	cpuGeom.verts.clear();
+	cpuGeom.cols.clear();
 
-		float y_angle = cb->getYAngle();
-		glm::mat3 Y_R = glm::mat3(1, 0,0,
-								0, cos(y_angle), -sin(y_angle),
-								0, sin(y_angle), cos(y_angle));
+	float x_angle = cb -> getXAngle(); 
+	glm::mat3 X_R = glm::mat3(cos(-x_angle),0, sin(-x_angle),
+							0,1,0,
+							-sin(-x_angle),0,cos(-x_angle));
 
-		std::vector<glm::vec3> flattenedVerts;
-		for (int i=0; i <3; i++) {
-			for(int j=0;j<lineVerts[i].size();j++){
-				if(i == 0){
-					glm::vec3 front = lineVerts[i][j] * X_R;
-					front = front * Y_R;
-					flattenedVerts.push_back(front);
-				}else if(i == 1){
-					float x = lineVerts[i][j].x;
-					float y = lineVerts[i][j].y;
-					glm::vec3 side = glm::vec3(0.f,y,x);
-					side = side * X_R;
-					side = side * Y_R;
-					flattenedVerts.push_back(side);
-				}else{
-					float x = lineVerts[i][j].x;
-					float y = lineVerts[i][j].y;
-					glm::vec3 top = glm::vec3(x,0.f,y);
-					top = top * X_R;
-					top = top * Y_R;
-					flattenedVerts.push_back(top);
-				}
+	float y_angle = cb->getYAngle();
+	glm::mat3 Y_R = glm::mat3(1, 0,0,
+							0, cos(y_angle), -sin(y_angle),
+							0, sin(y_angle), cos(y_angle));
+
+	std::vector<glm::vec3> flattenedVerts;
+	for (int i=0; i <3; i++) {
+		for(int j=0;j<lineVerts[i].size();j++){
+			if(i == 0){
+				glm::vec3 front = lineVerts[i][j] * X_R;
+				front = front * Y_R;
+				flattenedVerts.push_back(front);
+			}else if(i == 1){
+				float x = lineVerts[i][j].x;
+				float y = lineVerts[i][j].y;
+				glm::vec3 side = glm::vec3(0.f,y,x);
+				side = side * X_R;
+				side = side * Y_R;
+				flattenedVerts.push_back(side);
+			}else{
+				float x = lineVerts[i][j].x;
+				float y = lineVerts[i][j].y;
+				glm::vec3 top = glm::vec3(x,0.f,y);
+				top = top * X_R;
+				top = top * Y_R;
+				flattenedVerts.push_back(top);
 			}
 		}
-
-		cpuGeom.verts = flattenedVerts;
-
-		glm::vec3 red = glm::vec3(1, 0, 0);
-		glm::vec3 green = glm::vec3(0, 1, 0);
-		glm::vec3 blue = glm::vec3(0, 0, 1);
-		for (int i = 0; i < 3; i++) {
-			for (int j = 0; j < lineVerts[i].size(); j++) {
-				if (i == 0) {
-					cpuGeom.cols.push_back(red);
-				}
-				else if (i == 1) {
-					cpuGeom.cols.push_back(green);
-				}
-				else {
-					cpuGeom.cols.push_back(blue);
-				}
-			}
-		}
-		return;
 	}
+
+	cpuGeom.verts = flattenedVerts;
+
+	glm::vec3 red = glm::vec3(1, 0, 0);
+	glm::vec3 green = glm::vec3(0, 1, 0);
+	glm::vec3 blue = glm::vec3(0, 0, 1);
+	for (int i = 0; i < 3; i++) {
+		for (int j = 0; j < lineVerts[i].size(); j++) {
+			if (i == 0) {
+				cpuGeom.cols.push_back(red);
+			}
+			else if (i == 1) {
+				cpuGeom.cols.push_back(green);
+			}
+			else {
+				cpuGeom.cols.push_back(blue);
+			}
+		}
+	}
+	return;
+}
 
 
 void draw(
@@ -443,6 +415,7 @@ void draw(
 		}
 	}
 	else {
+		// show cross sections in 3D
 		combine(cb, lineVerts, lineCpu);
 		gpuGeom.setVerts(lineCpu.verts);
 		gpuGeom.setCols(lineCpu.cols);
@@ -496,9 +469,6 @@ int main() {
 
 	GPU_Geometry gpuGeom;
 
-
-		
-
 	// RENDER LOOP
 	while (!window.shouldClose()) {
 
@@ -520,20 +490,10 @@ int main() {
 
 		*/
 
-		/* CROSS SECTION */
 		// when the left button gets pressed increase the cross_section
 		if (cb->leftMouseJustPressed()) {
 			if (cross_section < 3) cross_section++;
 		}
-
-
-		/*
-		if(cross_section < 3){
-			draw_cross_sections(cb, lineVerts, cpuGeom, cross_section);
-		}else{
-			combine(lineVerts, cpuGeom, gpuGeom, cb);
-		}
-		*/
 
 		/*
 		else if (cb->rightMouseJustPressed()) {
@@ -597,49 +557,8 @@ int main() {
 
 		glEnable(GL_FRAMEBUFFER_SRGB);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-		//if (drawLines) glDrawArrays(GL_LINE_STRIP, 0, GLsizei(cpuGeom.verts.size()));
 
-		//std::vector<glm::vec3> temp;
-
-		/*
-		if (!lineVerts.empty()) {
-			controlPointcpu.verts = get_control_points(lineVerts[0], 30);
-
-			 if (drawLines) {
-				 if (!controlPointcpu.verts.empty()) {
-					 gpuGeom.setVerts(controlPointcpu.verts);
-					 glDrawArrays(GL_POINTS, 0, GLsizei(controlPointcpu.verts.size()));
-
-				 }
-			 }
-		}
-		*/
-
-		// if (drawLines) {
-		// 	for (const auto& line : lineVerts) {
-		// 		gpuGeom.setVerts(line);
-		// 		glDrawArrays(GL_LINE_STRIP, 0, GLsizei(line.size()));
-		// 	}
-		// }
-
-		// if (drawLines) {
-		// 	if (!cpuGeom.verts.empty()) {
-		// 		gpuGeom.setVerts(cpuGeom.verts);
-		// 		glDrawArrays(GL_LINE_STRIP, 0, GLsizei(cpuGeom.verts.size()));
-		// 	}
-		// }
-		
-		//m = controlPointcpu.verts.size() - 1;
-
-		//Bspline(controlPointcpu, controlPointgpu, controlPointcpu.verts, m, k, ui);
-
-		// controlPointgpu.bind();
-		// glDrawArrays(GL_LINE_STRIP, 0, GLsizei(controlPointcpu.verts.size()));
-
-		// glDrawArrays(GL_POINTS, 0, GLsizei(cpuGeom.verts.size()));
-
-		//draw_lines(lineVerts, cpuGeom, grid, gpuGeom, cross_section);
-
+		// actual drawing happening here
 		draw(
 			cb,
 			lineVerts, lineCpu,
