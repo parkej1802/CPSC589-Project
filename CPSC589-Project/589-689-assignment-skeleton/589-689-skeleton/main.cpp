@@ -12,6 +12,10 @@
 
 
 CPU_Geometry grid;
+glm::vec3 red = glm::vec3(1, 0, 0);
+glm::vec3 green = glm::vec3(0, 1, 0);
+glm::vec3 blue = glm::vec3(0, 0, 1);
+glm::vec3 white = glm::vec3(1, 1, 1);
 
 int k = 4;
 int m;
@@ -46,8 +50,9 @@ std::vector<float> knotSequence(int m, int k) {
 }
 
 
-void Bspline(CPU_Geometry& controlPointcpu, GPU_Geometry& controlPointgpu, std::vector<glm::vec3> E, int m, int k, float ui) {
-	controlPointcpu.verts.clear();
+void Bspline(std::vector<glm::vec3>& E, std::vector<glm::vec3>& result, int k, float ui) {
+	int m = E.size() - 1;
+	result.clear();
 	if (m < 1) return;
 	if (k > m + 1) return;
 
@@ -74,18 +79,14 @@ void Bspline(CPU_Geometry& controlPointcpu, GPU_Geometry& controlPointgpu, std::
 				i--;
 			}
 		}
-		controlPointcpu.verts.push_back(c[0]);
-		controlPointcpu.cols.push_back(glm::vec3(1.f, 1.f, 1.f));
+		result.push_back(c[0]);
 	}
 
-	if (!controlPointcpu.verts.empty()) {
-		controlPointcpu.verts.push_back(E.back());
-		controlPointcpu.cols.push_back(glm::vec3(1.f, 1.f, 1.f));
-
+	if (!result.empty()) {
+		result.push_back(E.back());
 	}
 
-	controlPointgpu.setVerts(controlPointcpu.verts);
-	controlPointgpu.setCols(controlPointcpu.cols);
+	return;
 }
 
 
@@ -305,18 +306,14 @@ void draw_cross_sections(
 		cpuGeom.verts = flattenLineVerts(lineVerts);
 
 		// load cpu geometry colors
-		glm::vec3 red = glm::vec3(1, 0, 0);
-		glm::vec3 green = glm::vec3(0, 1, 0);
-		glm::vec3 blue = glm::vec3(0, 0, 1);
-
 		if (cross_section == 0) {
 			cpuGeom.cols.push_back(red);
 		}
 		else if (cross_section == 1) {
-			cpuGeom.cols.push_back(blue);
+			cpuGeom.cols.push_back(green);
 		}
 		else {
-			cpuGeom.cols.push_back(green);
+			cpuGeom.cols.push_back(blue);
 		}
 	}
 
@@ -327,7 +324,8 @@ void draw_cross_sections(
 // show the user cross sections in 3D
 void combine(
 	std::shared_ptr<MyCallbacks>& cb,
-	std::vector<std::vector<glm::vec3>>& lineVerts, CPU_Geometry& cpuGeom){
+	std::vector<std::vector<glm::vec3>>& lineVerts,
+	CPU_Geometry& cpuGeom){
 
 	cpuGeom.verts.clear();
 	cpuGeom.cols.clear();
@@ -369,9 +367,7 @@ void combine(
 
 	cpuGeom.verts = flattenedVerts;
 
-	glm::vec3 red = glm::vec3(1, 0, 0);
-	glm::vec3 green = glm::vec3(0, 1, 0);
-	glm::vec3 blue = glm::vec3(0, 0, 1);
+	
 	for (int i = 0; i < 3; i++) {
 		for (int j = 0; j < lineVerts[i].size(); j++) {
 			if (i == 0) {
@@ -388,14 +384,13 @@ void combine(
 	return;
 }
 
-
 void draw(
 	std::shared_ptr<MyCallbacks>& cb,
 	std::vector<std::vector<glm::vec3>>& lineVerts, CPU_Geometry& lineCpu,
 	std::vector<std::vector<glm::vec3>>& controlPointVerts, CPU_Geometry& controlPointCpu,
 	std::vector<std::vector<glm::vec3>>& bsplineVerts, CPU_Geometry& bsplineCurveCpu,
 	GPU_Geometry& gpuGeom,
-	int cross_section) {
+	int& cross_section) {
 
 	if (cross_section < 3) {
 		// draw grid
@@ -414,7 +409,25 @@ void draw(
 			start_index += lineVerts[i].size();
 		}
 	}
+	else if(cross_section == 3){
+		// get control points
+		for (int i = 0; i < 3; i++) {
+			controlPointVerts[i] = get_control_points(lineVerts[i], 10);
+			Bspline(controlPointVerts[i], bsplineVerts[i], k, ui);
+		}
+		cross_section++;
+	}
 	else {
+		combine(cb, bsplineVerts, bsplineCurveCpu);
+		gpuGeom.setVerts(bsplineCurveCpu.verts);
+		gpuGeom.setCols(bsplineCurveCpu.cols);
+		int start_index = 0;
+		for (int i = 0; i < 3; i++) {
+			glDrawArrays(GL_LINE_STRIP, start_index, GLsizei(bsplineVerts[i].size()));
+			start_index += bsplineVerts[i].size();
+		}
+
+		/*
 		// show cross sections in 3D
 		combine(cb, lineVerts, lineCpu);
 		gpuGeom.setVerts(lineCpu.verts);
@@ -424,6 +437,7 @@ void draw(
 			glDrawArrays(GL_LINE_STRIP, start_index, GLsizei(lineVerts[i].size()));
 			start_index += lineVerts[i].size();
 		}
+		*/
 	}
 
 	return;
@@ -492,7 +506,7 @@ int main() {
 
 		// when the left button gets pressed increase the cross_section
 		if (cb->leftMouseJustPressed()) {
-			if (cross_section < 3) cross_section++;
+			if (cross_section < 5) cross_section++;
 		}
 
 		/*
