@@ -16,6 +16,8 @@ public:
 
 	glm::mat4 getView();
 	glm::vec3 getPos();
+	glm::mat4 getViewMatrix();
+	glm::mat4 getProjectionMatrix();
 	void incrementTheta(float dt);
 	void incrementPhi(float dp);
 	void incrementR(float dr);

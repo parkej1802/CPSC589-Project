@@ -41,3 +41,22 @@ void Camera::incrementPhi(float dp) {
 void Camera::incrementR(float dr) {
 	radius -= dr;
 }
+
+glm::mat4 Camera::getViewMatrix() {
+	// Calculate and return the view matrix based on the camera's current state
+	glm::vec3 cameraPosition; // should be set somewhere in the Camera class
+	glm::vec3 cameraTarget;   // the point the camera is looking at
+	glm::vec3 upVector;       // usually (0, 1, 0) for y-up coordinate systems
+
+	return glm::lookAt(cameraPosition, cameraTarget, upVector);
+}
+
+glm::mat4 Camera::getProjectionMatrix() {
+	// Calculate and return the projection matrix
+	float fov = glm::radians(45.0f); // Example field of view
+	float aspectRatio = 800.0f / 600.0f; // Example aspect ratio
+	float nearPlane = 0.1f; // Example near clipping plane
+	float farPlane = 100.0f; // Example far clipping plane
+
+	return glm::perspective(fov, aspectRatio, nearPlane, farPlane);
+}

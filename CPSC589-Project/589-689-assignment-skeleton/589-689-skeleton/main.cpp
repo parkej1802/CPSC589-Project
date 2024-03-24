@@ -105,9 +105,11 @@ public:
 	// Constructor. We use values of -1 for attributes that, at the start of
 	// the program, have no meaningful/"true" value.
 	MyCallbacks(ShaderProgram& shader, int screenWidth, int screenHeight)
+
 		: shader(shader)
 		, currentFrame(0)
 		, leftMouseActiveVal(false)
+		, rightMouseActiveVal(false)
 		, lastLeftPressedFrame(-1)
 		, lastRightPressedFrame(-1)
 		, screenMouseX(-1.0)
@@ -146,11 +148,11 @@ public:
 			leftMouseActiveVal = true;
 			lastLeftPressedFrame = currentFrame;
 		}
-		/*
+		
 		if (button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_PRESS) {
 			lastRightPressedFrame = currentFrame;
 		}
-		*/
+		
 
 		if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_RELEASE) {
 			leftMouseActiveVal = false;
@@ -158,9 +160,18 @@ public:
 
 
 		if (button == GLFW_MOUSE_BUTTON_RIGHT) {
-			if (action == GLFW_PRESS)			rightMouseDown = true;
-			else if (action == GLFW_RELEASE)	rightMouseDown = false;
+			if (action == GLFW_PRESS) {
+				rightMouseDown = true;
+				rightMouseActiveVal = true;
+			}
+			else if (action == GLFW_RELEASE) {
+				rightMouseDown = false;
+				rightMouseActiveVal = false;
+			}
+			
 		}
+
+
 	}
 
 	// Updates the screen width and height, in screen coordinates
@@ -173,6 +184,7 @@ public:
 
 	// Sets the new cursor position, in screen coordinates
 	virtual void cursorPosCallback(double xpos, double ypos) {
+		/*
 		if (rightMouseDown) { 
 			float xoffset = xpos - screenMouseX;
 			float yoffset = ypos - screenMouseY;
@@ -185,10 +197,14 @@ public:
 			screenMouseX = xpos;
 			screenMouseY = ypos;
 		}
-		else {
-			screenMouseX = xpos;
-			screenMouseY = ypos;
+		*/
+		if (rightMouseDown) {
+			camera.incrementTheta(ypos - screenMouseY);
+			camera.incrementPhi(xpos - screenMouseX);
 		}
+		screenMouseX = xpos;
+		screenMouseY = ypos;
+		
 	}
 
 	virtual void scrollCallback(double xoffset, double yoffset) {
@@ -219,6 +235,10 @@ public:
 		return lastRightPressedFrame == currentFrame;
 	}
 
+	bool rightMouseActive() {
+		return rightMouseActiveVal;
+	}
+
 	// Tell the callbacks object a new frame has begun.
 	void incrementFrameCount() {
 		currentFrame++;
@@ -234,6 +254,7 @@ public:
 
 	// Converts the cursor position from screen coordinates to GL coordinates
 	// and returns the result.
+	
 	glm::vec2 getCursorPosGL() {
 		glm::vec2 screenPos(screenMouseX, screenMouseY);
 		// Interpret click as at centre of pixel.
@@ -245,6 +266,36 @@ public:
 
 		// Go from [0, 1] range to [-1, 1] range.
 		return 2.f * flippedY - glm::vec2(1.f, 1.f);
+	}
+
+
+	/*
+	glm::vec3 getCursorPosWorld(glm::mat4 viewMatrix, glm::mat4 projectionMatrix) {
+		glm::vec2 screenPos(screenMouseX, screenMouseY);
+		glm::vec2 ndcPos = (screenPos / glm::vec2(screenWidth, screenHeight)) * 2.0f - glm::vec2(1.0f, 1.0f);
+		ndcPos.y = -ndcPos.y;
+		glm::vec3 ndcPos3D = glm::vec3(ndcPos, 1.0f);
+		glm::mat4 invVP = glm::inverse(projectionMatrix * viewMatrix);
+		glm::vec4 worldPos = invVP * glm::vec4(ndcPos3D, 1.0f);
+
+		return glm::vec3(worldPos) / worldPos.w; 
+	}
+	*/
+
+	glm::vec3 getCursorPosWorld(float screenX, float screenY, float depth, glm::mat4 viewMatrix, glm::mat4 projectionMatrix) {
+		glm::vec2 ndc;
+		ndc.x = (2.0f * screenX) / screenWidth - 1.0f;
+		ndc.y = 1.0f - (2.0f * screenY) / screenHeight;
+
+		glm::vec4 clipCoords = glm::vec4(ndc.x, ndc.y, depth, 1.0f);
+
+		glm::vec4 eyeCoords = glm::inverse(projectionMatrix) * clipCoords;
+		eyeCoords = glm::vec4(eyeCoords.x, eyeCoords.y, -1.0, 0.0);
+
+		glm::vec4 worldCoords = glm::inverse(viewMatrix) * eyeCoords;
+		glm::vec3 pos = glm::normalize(glm::vec3(worldCoords));
+
+		return pos;
 	}
 
 	// Takes in a list of points, given in GL's coordinate system,
@@ -293,19 +344,23 @@ private:
 
 	int screenWidth;
 	int screenHeight;
+	int screenDepth;
 
 	double screenMouseX;
 	double screenMouseY;
+	double screenMouseZ;
 
 	int currentFrame;
 
 	bool leftMouseActiveVal;
+	bool rightMouseActiveVal;
 
 	int lastLeftPressedFrame;
 	int lastRightPressedFrame;
 
 	float x_angle;
 	float y_angle;
+	float z_angle;
 
 	ShaderProgram& shader;
 
@@ -353,6 +408,7 @@ std::vector<glm::vec3> flattenLineVerts(std::vector<std::vector<glm::vec3>> &lin
 	return flattenedVerts;
 }
 
+
 // let user provide cross sections
 void draw_cross_sections(
 	std::shared_ptr<MyCallbacks> &cb,
@@ -360,8 +416,13 @@ void draw_cross_sections(
 	CPU_Geometry &cpuGeom,
 	int &cross_section) {
 
+	glm::mat4 viewMatrix = cb->camera.getViewMatrix();
+	glm::mat4 projectionMatrix = cb->camera.getProjectionMatrix();
+
+
 	if (cb->leftMouseActive()) {
 		// load cpu geometry
+		//lineVerts[cross_section].push_back(glm::vec3(cb->getCursorPosWorld(cb->getCursorPosGL().x, cb->getCursorPosGL().y, 0.0f, viewMatrix, projectionMatrix)));
 		lineVerts[cross_section].push_back(glm::vec3(cb->getCursorPosGL(), 0.f));
 		cpuGeom.verts = flattenLineVerts(lineVerts);
 
@@ -382,6 +443,7 @@ void draw_cross_sections(
 
 // after getting all cross sections from the user
 // show the user cross sections in 3D
+/*
 void combine(
 	std::shared_ptr<MyCallbacks>& cb,
 	std::vector<std::vector<glm::vec3>>& lineVerts,
@@ -390,7 +452,7 @@ void combine(
 	cpuGeom.verts.clear();
 	cpuGeom.cols.clear();
 
-	float x_angle = cb -> getXAngle(); 
+	float x_angle = cb -> getXAngle();
 	glm::mat3 X_R = glm::mat3(cos(-x_angle),0, sin(-x_angle),
 							0,1,0,
 							-sin(-x_angle),0,cos(-x_angle));
@@ -403,9 +465,12 @@ void combine(
 	std::vector<glm::vec3> flattenedVerts;
 	for (int i=0; i <3; i++) {
 		for(int j=0;j<lineVerts[i].size();j++){
+			glm::vec3 vert = lineVerts[i][j];
+			glm::vec3 transformedVert;
 			if(i == 0){
 				glm::vec3 front = lineVerts[i][j] * X_R;
 				front = front * Y_R;
+				transformedVert = glm::vec3(vert.x, vert.y, 0.f) * X_R * Y_R;
 				flattenedVerts.push_back(front);
 			}else if(i == 1){
 				float x = lineVerts[i][j].x;
@@ -413,6 +478,7 @@ void combine(
 				glm::vec3 side = glm::vec3(0.f,y,x);
 				side = side * X_R;
 				side = side * Y_R;
+				transformedVert = glm::vec3(0.f, vert.y, vert.x) * X_R * Y_R;
 				flattenedVerts.push_back(side);
 			}else{
 				float x = lineVerts[i][j].x;
@@ -420,6 +486,7 @@ void combine(
 				glm::vec3 top = glm::vec3(x,0.f,y);
 				top = top * X_R;
 				top = top * Y_R;
+				transformedVert = glm::vec3(vert.x, 0.f, vert.y) * X_R * Y_R;
 				flattenedVerts.push_back(top);
 			}
 		}
@@ -427,7 +494,7 @@ void combine(
 
 	cpuGeom.verts = flattenedVerts;
 
-	
+
 	for (int i = 0; i < 3; i++) {
 		for (int j = 0; j < lineVerts[i].size(); j++) {
 			if (i == 0) {
@@ -443,7 +510,44 @@ void combine(
 	}
 	return;
 }
+*/
 
+void combine(
+	std::shared_ptr<MyCallbacks>& cb,
+	std::vector<std::vector<glm::vec3>>& lineVerts,
+	CPU_Geometry& cpuGeom) {
+
+	cpuGeom.verts.clear();
+	cpuGeom.cols.clear();
+
+	float x_angle = cb->getXAngle();
+	glm::mat4 X_R = glm::rotate(glm::mat4(1.0f), x_angle, glm::vec3(1, 0, 0));
+	float y_angle = cb->getYAngle();
+	glm::mat4 Y_R = glm::rotate(glm::mat4(1.0f), y_angle, glm::vec3(0, 1, 0));
+
+	for (int viewIndex = 0; viewIndex < lineVerts.size(); viewIndex++) {
+		for (const auto& vert : lineVerts[viewIndex]) {
+			glm::vec4 transformedVert;
+			if (viewIndex == 0) { // Front view
+				transformedVert = glm::vec4(vert.x, vert.y, 0.f, 1.0f);
+				//std::cout << "Transformed Vertex: (" << transformedVert.x << ", " << transformedVert.y << ", " << transformedVert.z << ")" << std::endl;
+			}
+			else if (viewIndex == 1) { // Side view
+				transformedVert = glm::vec4(0.f, vert.y, vert.x, 1.0f);  // z value comes from x
+				//std::cout << "Transformed Vertex: (" << transformedVert.x << ", " << transformedVert.y << ", " << transformedVert.z << ")" << std::endl;
+			}
+			else if (viewIndex == 2) { // Top view
+				transformedVert = glm::vec4(vert.x, 0.f, vert.y, 1.0f);  // z value comes from y
+				//std::cout << "Transformed Vertex: (" << transformedVert.x << ", " << transformedVert.y << ", " << transformedVert.z << ")" << std::endl;
+			}
+			transformedVert = X_R * Y_R * transformedVert;
+			cpuGeom.verts.push_back(glm::vec3(transformedVert));
+		}
+
+		glm::vec3 color = (viewIndex == 0) ? red : ((viewIndex == 1) ? green : blue);
+		cpuGeom.cols.insert(cpuGeom.cols.end(), lineVerts[viewIndex].size(), color);
+	}
+}
 void draw(
 	std::shared_ptr<MyCallbacks>& cb,
 	std::vector<std::vector<glm::vec3>>& lineVerts, CPU_Geometry& lineCpu,
@@ -504,6 +608,103 @@ void draw(
 	return;
 }
 
+float findFrontMaxY(const std::vector<glm::vec3>& verts) {
+	float maxY = std::numeric_limits<float>::lowest();
+
+	for (const auto& vert : verts) {
+		if (vert.y > maxY) {
+			maxY = vert.y;
+		}
+	}
+
+	return maxY;
+}
+
+float findFrontMaxX(const std::vector<glm::vec3>& verts) {
+	float maxX = std::numeric_limits<float>::lowest();
+
+	for (const auto& vert : verts) {
+		if (vert.x > maxX) {
+			maxX = vert.x;
+		}
+	}
+
+	return maxX;
+}
+
+float findFrontMinY(const std::vector<glm::vec3>& verts) {
+	float minY = std::numeric_limits<float>::max();
+
+	for (const auto& vert : verts) {
+		if (vert.y < minY) {
+			minY = vert.y;
+		}
+	}
+
+	return minY;
+}
+
+float findFrontMinX(const std::vector<glm::vec3>& verts) {
+	float minX = std::numeric_limits<float>::max();
+
+	for (const auto& vert : verts) {
+		if (vert.x < minX) {
+			minX = vert.x;
+		}
+	}
+
+	return minX;
+}
+
+float findSideMaxY(const std::vector<glm::vec3>& verts) {
+	float maxX = std::numeric_limits<float>::lowest();
+
+	for (const auto& vert : verts) {
+		if (vert.x > maxX) {
+			maxX = vert.x;
+		}
+	}
+
+	return maxX;
+}
+
+float findSideMaxZ(const std::vector<glm::vec3>& verts) {
+	float maxZ = std::numeric_limits<float>::lowest();
+
+	for (const auto& vert : verts) {
+		if (vert.z > maxZ) {
+			maxZ = vert.z;
+		}
+	}
+
+	return maxZ;
+}
+
+std::vector<glm::vec3> transformLineVertices(const std::vector<std::vector<glm::vec3>>& lineVerts, const glm::mat3& X_R, const glm::mat3& Y_R) {
+	std::vector<glm::vec3> flattenedVerts;
+
+	for (int i = 0; i < lineVerts.size(); i++) {
+		for (int j = 0; j < lineVerts[i].size(); j++) {
+			glm::vec3 vert = lineVerts[i][j];
+			glm::vec3 transformedVert;
+
+			if (i == 0) { // Front view
+				transformedVert = glm::vec3(vert.x, vert.y, 0.f) * X_R * Y_R;
+			}
+			else if (i == 1) { // Side view
+				transformedVert = glm::vec3(0.f, vert.y, vert.x) * X_R * Y_R;
+			}
+			else if (i == 2) { // Top view
+				transformedVert = glm::vec3(vert.x, 0.f, vert.y) * X_R * Y_R;
+			}
+
+			flattenedVerts.push_back(transformedVert);
+		}
+	}
+
+	return flattenedVerts;
+}
+
 int main() {
 	Log::debug("Starting main");
 
@@ -527,7 +728,7 @@ int main() {
 	float color[3] = { 1.f, 0.f, 0.f }; // Color of new points
 	bool drawLines = true; // Whether to draw connecting lines
 	int selectedPointIndex = -1; // Used for point dragging & deletion
-
+	bool simpleWireframe = false;
 
 	// GEOMETRY
 	int cross_section = -1;
@@ -565,9 +766,32 @@ int main() {
 
 		*/
 
+		glm::mat4 viewMatrix = cb->camera.getViewMatrix();
+		glm::mat4 projectionMatrix = cb->camera.getProjectionMatrix();
+
+
 		// when the left button gets pressed increase the cross_section
 		if (cb->leftMouseJustPressed()) {
+			//std::cout << "Position: " << glm::vec3(glm::vec3(cb->getCursorPosWorld(cb->getCursorPosGL().x, cb->getCursorPosGL().y, 0.0f, viewMatrix, projectionMatrix))) << std::endl;
+			std::cout << "Position: " << glm::vec3(cb->getCursorPosGL(), 0.f) << std::endl;
 			if (cross_section < 5) cross_section++;
+		}
+
+		if (cb->rightMouseJustPressed()) {
+			
+			float maxFY = findFrontMaxY(lineVerts[0]);
+			float maxFX = findFrontMaxX(lineVerts[0]);
+			float minFY = findFrontMinY(lineVerts[0]);
+			float minFX = findFrontMinX(lineVerts[0]);
+			std::cout << "Max Front X : " << maxFX << std::endl;
+			std::cout << "Max Front Y : " << maxFY << std::endl;
+			std::cout << "Min Front X : " << minFX << std::endl;
+			std::cout << "Min Front Y : " << minFY << std::endl;
+
+			float maxSY = findSideMaxY(lineVerts[1]);
+			float maxSZ = findSideMaxZ(lineVerts[1]);
+			std::cout << "Max Side Y : " << maxSY << std::endl;
+			std::cout << "Max Side Z : " << maxSZ << std::endl;
 		}
 
 
@@ -629,6 +853,16 @@ int main() {
 		shader.use();
 		gpuGeom.bind();
 
+
+		glEnable(GL_LINE_SMOOTH);
+		glEnable(GL_FRAMEBUFFER_SRGB);
+		//glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
+		glEnable(GL_FRAMEBUFFER_SRGB);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+		glEnable(GL_DEPTH_TEST);
+		glPolygonMode(GL_FRONT_AND_BACK, (simpleWireframe ? GL_LINE : GL_FILL));
+
 		if (change)
 		{
 			//cb->updateShadingUniforms(lightPos, lightCol, diffuseCol, ambientStrength, texExistence);
@@ -636,9 +870,6 @@ int main() {
 		cb->viewPipeline();
 		
 		glPointSize(pointSize);
-
-		glEnable(GL_FRAMEBUFFER_SRGB);
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 		// actual drawing happening here
 		draw(
