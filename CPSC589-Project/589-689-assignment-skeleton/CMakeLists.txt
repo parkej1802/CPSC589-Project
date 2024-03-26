@@ -54,6 +54,9 @@ include_directories(SYSTEM thirdparty/imgui-1.89.2)
 find_package(OpenGL REQUIRED)
 set(LIBRARIES ${LIBRARIES} ${OPENGL_gl_LIBRARY})
 
+add_subdirectory(thirdparty/CDT)
+set(LIBRARIES ${LIBRARIES} CDT)
+include_directories(SYSTEM thirdparty/CDT/include)
 
 if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
 	list(APPEND _589_689_CMAKE_CXX_FLAGS ${_589_689_CMAKE_CXX_FLAGS} "-Wall" "-pedantic")

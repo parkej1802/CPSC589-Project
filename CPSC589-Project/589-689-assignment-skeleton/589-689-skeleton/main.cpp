@@ -9,6 +9,8 @@
 // Window.h `#include`s ImGui, GLFW, and glad in correct order.
 #include "Window.h"
 
+#include "CDT.h"
+
 #include "Geometry.h"
 #include "GLDebug.h"
 #include "Log.h"
@@ -507,6 +509,10 @@ void draw(
 }
 
 int main() {
+
+	// TEST
+	CDT::Triangulation<double> cdt;
+
 	Log::debug("Starting main");
 
 	// WINDOW
