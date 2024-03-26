@@ -441,7 +441,29 @@ void draw_cross_sections(
 	return;
 }
 
-// after getting all cross sections from the user
+void transform(
+	std::vector<std::vector<glm::vec3>>& lineVerts,
+	std::vector<std::vector<glm::vec3>>& transformedVerts) {
+
+	//transformedVerts.clear();
+	transformedVerts[0] = lineVerts[1];
+
+	for (int i = 1; i < 3; i++) {
+		for (int j = 0; j < lineVerts[i].size(); j++) {
+			float x = lineVerts[i][j].x;
+			float y = lineVerts[i][j].y;
+			if (i == 1) {
+				glm::vec3 side = glm::vec3(0.f, y, x);
+				transformedVerts[i].push_back(side);
+			}
+			else {
+				glm::vec3 top = glm::vec3(x, 0.f, y);
+				transformedVerts[i].push_back(top);
+			}
+		}
+	}
+}
+
 // show the user cross sections in 3D
 /*
 void combine(
@@ -462,39 +484,12 @@ void combine(
 							0, cos(-y_angle), -sin(-y_angle),
 							0, sin(-y_angle), cos(-y_angle));
 
-	std::vector<glm::vec3> flattenedVerts;
-	for (int i=0; i <3; i++) {
-		for(int j=0;j<lineVerts[i].size();j++){
-			glm::vec3 vert = lineVerts[i][j];
-			glm::vec3 transformedVert;
-			if(i == 0){
-				glm::vec3 front = lineVerts[i][j] * X_R;
-				front = front * Y_R;
-				transformedVert = glm::vec3(vert.x, vert.y, 0.f) * X_R * Y_R;
-				flattenedVerts.push_back(front);
-			}else if(i == 1){
-				float x = lineVerts[i][j].x;
-				float y = lineVerts[i][j].y;
-				glm::vec3 side = glm::vec3(0.f,y,x);
-				side = side * X_R;
-				side = side * Y_R;
-				transformedVert = glm::vec3(0.f, vert.y, vert.x) * X_R * Y_R;
-				flattenedVerts.push_back(side);
-			}else{
-				float x = lineVerts[i][j].x;
-				float y = lineVerts[i][j].y;
-				glm::vec3 top = glm::vec3(x,0.f,y);
-				top = top * X_R;
-				top = top * Y_R;
-				transformedVert = glm::vec3(vert.x, 0.f, vert.y) * X_R * Y_R;
-				flattenedVerts.push_back(top);
-			}
-		}
+	cpuGeom.verts = flattenLineVerts(lineVerts);
+	for (auto& vert : cpuGeom.verts) {
+		vert = vert * X_R;
+		vert = vert * Y_R;
 	}
-
-	cpuGeom.verts = flattenedVerts;
-
-
+	
 	for (int i = 0; i < 3; i++) {
 		for (int j = 0; j < lineVerts[i].size(); j++) {
 			if (i == 0) {
@@ -510,49 +505,13 @@ void combine(
 	}
 	return;
 }
-*/
 
-void combine(
-	std::shared_ptr<MyCallbacks>& cb,
-	std::vector<std::vector<glm::vec3>>& lineVerts,
-	CPU_Geometry& cpuGeom) {
-
-	cpuGeom.verts.clear();
-	cpuGeom.cols.clear();
-
-	float x_angle = cb->getXAngle();
-	glm::mat4 X_R = glm::rotate(glm::mat4(1.0f), x_angle, glm::vec3(1, 0, 0));
-	float y_angle = cb->getYAngle();
-	glm::mat4 Y_R = glm::rotate(glm::mat4(1.0f), y_angle, glm::vec3(0, 1, 0));
-
-	for (int viewIndex = 0; viewIndex < lineVerts.size(); viewIndex++) {
-		for (const auto& vert : lineVerts[viewIndex]) {
-			glm::vec4 transformedVert;
-			if (viewIndex == 0) { // Front view
-				transformedVert = glm::vec4(vert.x, vert.y, 0.f, 1.0f);
-				//std::cout << "Transformed Vertex: (" << transformedVert.x << ", " << transformedVert.y << ", " << transformedVert.z << ")" << std::endl;
-			}
-			else if (viewIndex == 1) { // Side view
-				transformedVert = glm::vec4(0.f, vert.y, vert.x, 1.0f);  // z value comes from x
-				//std::cout << "Transformed Vertex: (" << transformedVert.x << ", " << transformedVert.y << ", " << transformedVert.z << ")" << std::endl;
-			}
-			else if (viewIndex == 2) { // Top view
-				transformedVert = glm::vec4(vert.x, 0.f, vert.y, 1.0f);  // z value comes from y
-				//std::cout << "Transformed Vertex: (" << transformedVert.x << ", " << transformedVert.y << ", " << transformedVert.z << ")" << std::endl;
-			}
-			transformedVert = X_R * Y_R * transformedVert;
-			cpuGeom.verts.push_back(glm::vec3(transformedVert));
-		}
-
-		glm::vec3 color = (viewIndex == 0) ? red : ((viewIndex == 1) ? green : blue);
-		cpuGeom.cols.insert(cpuGeom.cols.end(), lineVerts[viewIndex].size(), color);
-	}
-}
 void draw(
 	std::shared_ptr<MyCallbacks>& cb,
 	std::vector<std::vector<glm::vec3>>& lineVerts, CPU_Geometry& lineCpu,
 	std::vector<std::vector<glm::vec3>>& controlPointVerts, CPU_Geometry& controlPointCpu,
 	std::vector<std::vector<glm::vec3>>& bsplineVerts, CPU_Geometry& bsplineCurveCpu,
+	std::vector<std::vector<glm::vec3>>& transformedVerts,
 	GPU_Geometry& gpuGeom,
 	int& cross_section) {
 
@@ -579,6 +538,7 @@ void draw(
 			controlPointVerts[i] = get_control_points(lineVerts[i], 10);
 			Bspline(controlPointVerts[i], bsplineVerts[i], k, ui);
 		}
+		transform(lineVerts, transformedVerts);
 		cross_section++;
 	}
 	else {
@@ -594,13 +554,13 @@ void draw(
 		*/
 		
 		// show cross sections in 3D
-		combine(cb, lineVerts, lineCpu);
+		combine(cb, transformedVerts, lineCpu);
 		gpuGeom.setVerts(lineCpu.verts);
 		gpuGeom.setCols(lineCpu.cols);
 		int start_index = 0;
 		for (int i = 0; i < 3; i++) {
-			glDrawArrays(GL_LINE_STRIP, start_index, GLsizei(lineVerts[i].size()));
-			start_index += lineVerts[i].size();
+			glDrawArrays(GL_LINE_STRIP, start_index, GLsizei(transformedVerts[i].size()));
+			start_index += transformedVerts[i].size();
 		}
 		
 	}
@@ -737,6 +697,7 @@ int main() {
 	CPU_Geometry bsplineCurveCpu;
 
 	std::vector<std::vector<glm::vec3>> lineVerts(3);
+	std::vector<std::vector<glm::vec3>> transformedVerts(3);
 	std::vector<std::vector<glm::vec3>> controlPointVerts(3);
 	std::vector<std::vector<glm::vec3>> bsplineCurveVerts(3);
 
@@ -877,6 +838,7 @@ int main() {
 			lineVerts, lineCpu,
 			controlPointVerts, controlPointCpu,
 			bsplineCurveVerts, bsplineCurveCpu,
+			transformedVerts,
 			gpuGeom,
 			cross_section);
 
