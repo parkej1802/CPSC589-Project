@@ -48,6 +48,9 @@ add_subdirectory(thirdparty/fmt-7.0.3)
 set(LIBRARIES ${LIBRARIES} fmt::fmt)
 include_directories(SYSTEM thirdparty/fmt-7.0.3/include)
 
+add_subdirectory(thirdparty/CDT)
+set(LIBRARIES ${LIBRARIES} CDT)
+include_directories(SYSTEM thirdparty/CDT/include)
 include_directories(SYSTEM thirdparty/imgui-1.89.2)
 
 

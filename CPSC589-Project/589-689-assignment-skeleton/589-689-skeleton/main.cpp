@@ -5,6 +5,9 @@
 #include <limits>
 #include <functional>
 #include <unordered_map>
+#include <fstream>
+
+#include "CDT.h"
 
 // Window.h `#include`s ImGui, GLFW, and glad in correct order.
 #include "Window.h"
@@ -139,7 +142,7 @@ public:
 		// If we click the mouse on the ImGui window, we don't want to log that
 		// here. But if we RELEASE the mouse over the window, we do want to
 		// know that!
-		
+
 		auto& io = ImGui::GetIO();
 		if (io.WantCaptureMouse && action == GLFW_PRESS) return;
 
@@ -148,11 +151,11 @@ public:
 			leftMouseActiveVal = true;
 			lastLeftPressedFrame = currentFrame;
 		}
-		
+
 		if (button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_PRESS) {
 			lastRightPressedFrame = currentFrame;
 		}
-		
+
 
 		if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_RELEASE) {
 			leftMouseActiveVal = false;
@@ -168,7 +171,7 @@ public:
 				rightMouseDown = false;
 				rightMouseActiveVal = false;
 			}
-			
+
 		}
 
 
@@ -184,8 +187,8 @@ public:
 
 	// Sets the new cursor position, in screen coordinates
 	virtual void cursorPosCallback(double xpos, double ypos) {
-		/*
-		if (rightMouseDown) { 
+
+		if (rightMouseDown) {
 			float xoffset = xpos - screenMouseX;
 			float yoffset = ypos - screenMouseY;
 
@@ -197,14 +200,16 @@ public:
 			screenMouseX = xpos;
 			screenMouseY = ypos;
 		}
-		*/
+
+		/*
 		if (rightMouseDown) {
 			camera.incrementTheta(ypos - screenMouseY);
 			camera.incrementPhi(xpos - screenMouseX);
 		}
+		*/
 		screenMouseX = xpos;
 		screenMouseY = ypos;
-		
+
 	}
 
 	virtual void scrollCallback(double xoffset, double yoffset) {
@@ -244,7 +249,7 @@ public:
 		currentFrame++;
 	}
 
-	float getXAngle(){
+	float getXAngle() {
 		return x_angle;
 	}
 
@@ -254,7 +259,7 @@ public:
 
 	// Converts the cursor position from screen coordinates to GL coordinates
 	// and returns the result.
-	
+
 	glm::vec2 getCursorPosGL() {
 		glm::vec2 screenPos(screenMouseX, screenMouseY);
 		// Interpret click as at centre of pixel.
@@ -278,7 +283,7 @@ public:
 		glm::mat4 invVP = glm::inverse(projectionMatrix * viewMatrix);
 		glm::vec4 worldPos = invVP * glm::vec4(ndcPos3D, 1.0f);
 
-		return glm::vec3(worldPos) / worldPos.w; 
+		return glm::vec3(worldPos) / worldPos.w;
 	}
 	*/
 
@@ -384,7 +389,7 @@ private:
 };
 
 // get control points of a line user provided
-std::vector<glm::vec3> get_control_points(std::vector<glm::vec3> &line,int smoothness) {
+std::vector<glm::vec3> get_control_points(std::vector<glm::vec3>& line, int smoothness) {
 	std::vector<glm::vec3> result;
 
 	int step_size = line.size() / smoothness;
@@ -394,11 +399,11 @@ std::vector<glm::vec3> get_control_points(std::vector<glm::vec3> &line,int smoot
 		result.push_back(line[index]);
 		index += step_size;
 	}
-	return result; 
+	return result;
 }
 
 // flatten all line vectors to one vector
-std::vector<glm::vec3> flattenLineVerts(std::vector<std::vector<glm::vec3>> &lineVerts) {
+std::vector<glm::vec3> flattenLineVerts(std::vector<std::vector<glm::vec3>>& lineVerts) {
 	std::vector<glm::vec3> flattenedVerts;
 
 	for (const auto& vertGroup : lineVerts) {
@@ -411,10 +416,10 @@ std::vector<glm::vec3> flattenLineVerts(std::vector<std::vector<glm::vec3>> &lin
 
 // let user provide cross sections
 void draw_cross_sections(
-	std::shared_ptr<MyCallbacks> &cb,
-	std::vector<std::vector<glm::vec3>> &lineVerts,
-	CPU_Geometry &cpuGeom,
-	int &cross_section) {
+	std::shared_ptr<MyCallbacks>& cb,
+	std::vector<std::vector<glm::vec3>>& lineVerts,
+	CPU_Geometry& cpuGeom,
+	int& cross_section) {
 
 	glm::mat4 viewMatrix = cb->camera.getViewMatrix();
 	glm::mat4 projectionMatrix = cb->camera.getProjectionMatrix();
@@ -465,31 +470,31 @@ void transform(
 }
 
 // show the user cross sections in 3D
-/*
+
 void combine(
 	std::shared_ptr<MyCallbacks>& cb,
 	std::vector<std::vector<glm::vec3>>& lineVerts,
-	CPU_Geometry& cpuGeom){
+	CPU_Geometry& cpuGeom) {
 
 	cpuGeom.verts.clear();
 	cpuGeom.cols.clear();
 
-	float x_angle = cb -> getXAngle();
-	glm::mat3 X_R = glm::mat3(cos(-x_angle),0, sin(-x_angle),
-							0,1,0,
-							-sin(-x_angle),0,cos(-x_angle));
+	float x_angle = cb->getXAngle();
+	glm::mat3 X_R = glm::mat3(cos(-x_angle), 0, sin(-x_angle),
+		0, 1, 0,
+		-sin(-x_angle), 0, cos(-x_angle));
 
 	float y_angle = cb->getYAngle();
-	glm::mat3 Y_R = glm::mat3(1, 0,0,
-							0, cos(-y_angle), -sin(-y_angle),
-							0, sin(-y_angle), cos(-y_angle));
+	glm::mat3 Y_R = glm::mat3(1, 0, 0,
+		0, cos(-y_angle), -sin(-y_angle),
+		0, sin(-y_angle), cos(-y_angle));
 
 	cpuGeom.verts = flattenLineVerts(lineVerts);
 	for (auto& vert : cpuGeom.verts) {
 		vert = vert * X_R;
 		vert = vert * Y_R;
 	}
-	
+
 	for (int i = 0; i < 3; i++) {
 		for (int j = 0; j < lineVerts[i].size(); j++) {
 			if (i == 0) {
@@ -532,7 +537,7 @@ void draw(
 			start_index += lineVerts[i].size();
 		}
 	}
-	else if(cross_section == 3){
+	else if (cross_section == 3) {
 		// get control points
 		for (int i = 0; i < 3; i++) {
 			controlPointVerts[i] = get_control_points(lineVerts[i], 10);
@@ -552,7 +557,7 @@ void draw(
 			start_index += bsplineVerts[i].size();
 		}
 		*/
-		
+
 		// show cross sections in 3D
 		combine(cb, transformedVerts, lineCpu);
 		gpuGeom.setVerts(lineCpu.verts);
@@ -562,7 +567,7 @@ void draw(
 			glDrawArrays(GL_LINE_STRIP, start_index, GLsizei(transformedVerts[i].size()));
 			start_index += transformedVerts[i].size();
 		}
-		
+
 	}
 
 	return;
@@ -665,6 +670,67 @@ std::vector<glm::vec3> transformLineVertices(const std::vector<std::vector<glm::
 	return flattenedVerts;
 }
 
+void createBalancedControlPoint(const std::vector<std::vector<glm::vec3>>& lineVerts) {
+
+}
+
+void saveMeshToOBJ(const std::vector<glm::vec3>& vertices,
+	const std::vector<glm::vec3>& normals,
+	const std::vector<std::vector<int>>& faces,
+	const std::string& filename) {
+	std::ofstream file(filename);
+
+	if (!file.is_open()) {
+		std::cerr << "Error opening file for writing: " << filename << std::endl;
+		return;
+	}
+
+	// Write vertices to file
+	for (const auto& v : vertices) {
+		file << "v " << v.x << " " << v.y << " " << v.z << std::endl;
+	}
+
+	// Write normals to file
+	for (const auto& n : normals) {
+		file << "vn " << n.x << " " << n.y << " " << n.z << std::endl;
+	}
+
+	// Write faces to file (assuming each face is a quadrilateral)
+	for (const auto& face : faces) {
+		file << "f";
+		for (int vertexIndex : face) {
+			file << " " << (vertexIndex + 1) << "//" << (vertexIndex + 1);
+		}
+		file << std::endl;
+	}
+
+	file.close();
+	std::cout << "OBJ file created: " << filename << std::endl;
+}
+
+void create3dMesh() {
+	std::vector<glm::vec3> vertices = {
+		{0.0f, 0.0f, 0.0f}, {1.0f, 0.0f, 0.0f}, {1.0f, 1.0f, 0.0f}, {0.0f, 1.0f, 0.0f},
+		{0.0f, 0.0f, 1.0f}, {1.0f, 0.0f, 1.0f}, {1.0f, 1.0f, 1.0f}, {0.0f, 1.0f, 1.0f}
+	};
+
+	std::vector<glm::vec3> normals = {
+		{0.0f, 0.0f, -1.0f}, // Front face
+		{0.0f, 0.0f, 1.0f},  // Back face
+		{0.0f, -1.0f, 0.0f}, // Bottom face
+		{0.0f, 1.0f, 0.0f},  // Top face
+		{-1.0f, 0.0f, 0.0f}, // Left face
+		{1.0f, 0.0f, 0.0f}   // Right face
+	};
+
+	std::vector<std::vector<int>> faces = {
+		{0, 1, 2, 3}, {4, 5, 6, 7}, {0, 4, 5, 1},
+		{2, 6, 7, 3}, {0, 3, 7, 4}, {1, 5, 6, 2}
+	};
+
+	saveMeshToOBJ(vertices, normals, faces, "C:/Users/U/Documents/output1.obj");
+}
+
 int main() {
 	Log::debug("Starting main");
 
@@ -705,6 +771,7 @@ int main() {
 	grid.cols = { glm::vec3(1.0f, 1.0f, 1.0f), glm::vec3(1.0f, 1.0f, 1.0f), glm::vec3(1.0f, 1.0f, 1.0f), glm::vec3(1.0f, 1.0f, 1.0f) };
 
 	GPU_Geometry gpuGeom;
+	create3dMesh();
 
 	// RENDER LOOP
 	while (!window.shouldClose()) {
@@ -739,20 +806,22 @@ int main() {
 		}
 
 		if (cb->rightMouseJustPressed()) {
-			
-			float maxFY = findFrontMaxY(lineVerts[0]);
-			float maxFX = findFrontMaxX(lineVerts[0]);
-			float minFY = findFrontMinY(lineVerts[0]);
-			float minFX = findFrontMinX(lineVerts[0]);
+
+			float maxFY = findFrontMaxY(transformedVerts[0]);
+			float maxFX = findFrontMaxX(transformedVerts[0]);
+			float minFY = findFrontMinY(transformedVerts[0]);
+			float minFX = findFrontMinX(transformedVerts[0]);
 			std::cout << "Max Front X : " << maxFX << std::endl;
 			std::cout << "Max Front Y : " << maxFY << std::endl;
 			std::cout << "Min Front X : " << minFX << std::endl;
 			std::cout << "Min Front Y : " << minFY << std::endl;
 
-			float maxSY = findSideMaxY(lineVerts[1]);
-			float maxSZ = findSideMaxZ(lineVerts[1]);
+			float maxSY = findSideMaxY(transformedVerts[1]);
+			float maxSZ = findSideMaxZ(transformedVerts[1]);
 			std::cout << "Max Side Y : " << maxSY << std::endl;
 			std::cout << "Max Side Z : " << maxSZ << std::endl;
+
+
 		}
 
 
@@ -829,7 +898,7 @@ int main() {
 			//cb->updateShadingUniforms(lightPos, lightCol, diffuseCol, ambientStrength, texExistence);
 		}
 		cb->viewPipeline();
-		
+
 		glPointSize(pointSize);
 
 		// actual drawing happening here
