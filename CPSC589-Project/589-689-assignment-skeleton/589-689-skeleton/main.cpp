@@ -480,14 +480,14 @@ void combine(
 	cpuGeom.cols.clear();
 
 	float x_angle = cb->getXAngle();
-	glm::mat3 X_R = glm::mat3(cos(-x_angle), 0, sin(-x_angle),
-		0, 1, 0,
-		-sin(-x_angle), 0, cos(-x_angle));
+	glm::mat3 X_R = glm::mat3(cos(x_angle), 0, sin(x_angle),
+							0, 1, 0,
+							-sin(x_angle), 0, cos(x_angle));
 
 	float y_angle = cb->getYAngle();
 	glm::mat3 Y_R = glm::mat3(1, 0, 0,
-		0, cos(-y_angle), -sin(-y_angle),
-		0, sin(-y_angle), cos(-y_angle));
+							  0, cos(y_angle), -sin(y_angle),
+							  0, sin(y_angle), cos(y_angle));
 
 	cpuGeom.verts = flattenLineVerts(lineVerts);
 	for (auto& vert : cpuGeom.verts) {
@@ -622,15 +622,15 @@ float findFrontMinX(const std::vector<glm::vec3>& verts) {
 }
 
 float findSideMaxY(const std::vector<glm::vec3>& verts) {
-	float maxX = std::numeric_limits<float>::lowest();
+	float maxY = std::numeric_limits<float>::lowest();
 
 	for (const auto& vert : verts) {
-		if (vert.x > maxX) {
-			maxX = vert.x;
+		if (vert.y > maxY) {
+			maxY = vert.y;
 		}
 	}
 
-	return maxX;
+	return maxY;
 }
 
 float findSideMaxZ(const std::vector<glm::vec3>& verts) {
