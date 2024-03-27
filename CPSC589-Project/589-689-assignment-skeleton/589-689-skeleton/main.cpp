@@ -5,6 +5,7 @@
 #include <limits>
 #include <functional>
 #include <unordered_map>
+#include <fstream>
 
 // Window.h `#include`s ImGui, GLFW, and glad in correct order.
 #include "Window.h"
@@ -481,6 +482,37 @@ std::vector<glm::vec3> calculateVertexNormals(const CDT::Triangulation<double>& 
 	return normals;
 }
 
+void saveMeshToOBJ(const CDT::Triangulation<double>& cdt, const std::string& filename) {
+	std::ofstream file(filename);
+	if (!file.is_open()) {
+		std::cerr << "Failed to open file for writing: " << filename << std::endl;
+		return;
+	}
+
+
+	for (const auto& vertex : cdt.vertices) {
+		file << "v " << vertex.x << " " << vertex.y << " " << 0.0f << std::endl; 
+	}
+
+	auto normals = calculateVertexNormals(cdt);
+	for (const auto& normal : normals) {
+		file << "vn " << normal.x << " " << normal.y << " " << normal.z << std::endl;
+	}
+
+	file << "s off" << std::endl; 
+
+	for (const auto& triangle : cdt.triangles) {
+		file << "f";
+		for (int i = 0; i < 3; ++i) {
+			int vertexIndex = triangle.vertices[i] + 1; 
+			file << " " << vertexIndex << "//" << vertexIndex; 
+		}
+		file << std::endl;
+	}
+
+	file.close();
+}
+
 void draw(
 	std::shared_ptr<MyCallbacks>& cb,
 	std::vector<std::vector<glm::vec3>>& lineVerts, CPU_Geometry& lineCpu,
@@ -497,7 +529,7 @@ void draw(
 		glDrawArrays(GL_LINE_STRIP, 0, GLsizei(2));
 		glDrawArrays(GL_LINE_STRIP, 2, GLsizei(2));
 
-		// draw user input lines
+		// draw user input lines 
 		draw_cross_sections(cb, lineVerts, lineCpu, cross_section);
 		gpuGeom.setVerts(lineCpu.verts);
 		gpuGeom.setCols(lineCpu.cols);
@@ -545,7 +577,7 @@ void draw(
 			[](const CustomEdge& e) { return e.vertices.second; }
 		);
 		//cdt.eraseOuterTrianglesAndHoles();
-		
+
 		for (auto vertex : cdt.vertices) {
 			std::cout << vertex.x << ", " << vertex.y << std::endl;
 		}
@@ -560,12 +592,11 @@ void draw(
 
 		auto normals = calculateVertexNormals(cdt);
 
-		
-		std::cout << "Vertex Normals:" << std::endl;
 		for (const auto& normal : normals) {
 			std::cout << normal.x << ", " << normal.y << ", " << normal.z << std::endl;
 		}
-		
+
+		saveMeshToOBJ(cdt, "C:/Users/U/Documents/output3.obj");
 
 		cdt.triangles;
 		cdt.vertices;
@@ -605,6 +636,7 @@ void draw(
 struct Face {
 	int v1, v2, v3;
 };
+
 
 
 int main() {
