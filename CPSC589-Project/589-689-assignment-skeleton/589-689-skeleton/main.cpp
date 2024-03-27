@@ -520,7 +520,17 @@ void draw(
 		);
 		//cdt.eraseOuterTrianglesAndHoles();
 		
+		for (auto vertex : cdt.vertices) {
+			std::cout << vertex.x << ", " << vertex.y << std::endl;
+		}
 
+		for (auto triangle : cdt.triangles) {
+			std::cout << triangle.vertices[0] << ", " << triangle.vertices[1] << ", " << triangle.vertices[2] << std::endl;
+		}
+
+		for (auto edge : cdt.fixedEdges) {
+			std::cout << edge.v1() << ", " << edge.v2() << std::endl;
+		}
 		cdt.triangles;
 		cdt.vertices;
 		cdt.fixedEdges;
