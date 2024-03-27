@@ -455,6 +455,32 @@ void combine(
 	return;
 }
 
+std::vector<glm::vec3> calculateVertexNormals(const CDT::Triangulation<double>& cdt) {
+	std::vector<glm::vec3> normals(cdt.vertices.size(), glm::vec3(0.0f, 0.0f, 0.0f));
+
+	for (const auto& triangle : cdt.triangles) {
+		auto v1_index = triangle.vertices[0];
+		auto v2_index = triangle.vertices[1];
+		auto v3_index = triangle.vertices[2];
+
+		glm::vec3 v1(cdt.vertices[v1_index].x, cdt.vertices[v1_index].y, 0.0f);
+		glm::vec3 v2(cdt.vertices[v2_index].x, cdt.vertices[v2_index].y, 0.0f);
+		glm::vec3 v3(cdt.vertices[v3_index].x, cdt.vertices[v3_index].y, 0.0f);
+
+		glm::vec3 normal = glm::normalize(glm::cross(v2 - v1, v3 - v1));
+
+		normals[v1_index] += normal;
+		normals[v2_index] += normal;
+		normals[v3_index] += normal;
+	}
+
+	for (auto& normal : normals) {
+		normal = glm::normalize(normal);
+	}
+
+	return normals;
+}
+
 void draw(
 	std::shared_ptr<MyCallbacks>& cb,
 	std::vector<std::vector<glm::vec3>>& lineVerts, CPU_Geometry& lineCpu,
@@ -531,6 +557,16 @@ void draw(
 		for (auto edge : cdt.fixedEdges) {
 			std::cout << edge.v1() << ", " << edge.v2() << std::endl;
 		}
+
+		auto normals = calculateVertexNormals(cdt);
+
+		
+		std::cout << "Vertex Normals:" << std::endl;
+		for (const auto& normal : normals) {
+			std::cout << normal.x << ", " << normal.y << ", " << normal.z << std::endl;
+		}
+		
+
 		cdt.triangles;
 		cdt.vertices;
 		cdt.fixedEdges;
@@ -564,6 +600,12 @@ void draw(
 
 	return;
 }
+
+
+struct Face {
+	int v1, v2, v3;
+};
+
 
 int main() {
 	Log::debug("Starting main");
