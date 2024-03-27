@@ -507,7 +507,7 @@ void saveMeshToOBJ(const CDT::Triangulation<double>& cdt, const std::string& fil
 		file << "vn " << normal.x << " " << normal.y << " " << normal.z << std::endl;
 	}
 
-	file << "s off" << std::endl; 
+	file << "s 1" << std::endl; 
 
 	for (const auto& triangle : cdt.triangles) {
 		file << "f";
@@ -570,12 +570,14 @@ void draw(
 			[](const glm::vec3& p) { return p.y; }
 		);
 
+		/*
 		struct CustomEdge {
 			std::pair<std::size_t, std::size_t> vertices;
 
 			CustomEdge(std::size_t first, std::size_t second) : vertices(first, second) {}
 		};
 
+		
 		// Define and insert edges before finalizing the triangulation
 		std::vector<CustomEdge> edges;
 		for (int i = 0; i < controlPointVerts[0].size() - 1; i++) {
@@ -588,10 +590,10 @@ void draw(
 			[](const CustomEdge& e) { return e.vertices.first; },
 			[](const CustomEdge& e) { return e.vertices.second; }
 		);
+		*/
+		
 
-		cdt.eraseOuterTrianglesAndHoles();
-
-		/*
+		
 		struct CustomEdge
 		{
 			std::pair<std::size_t, std::size_t> vertices;
@@ -603,6 +605,11 @@ void draw(
 			edge.vertices = std::make_pair(i, i + 1);
 			edges.push_back(edge);
 		}
+		CustomEdge edge;
+		edge.vertices = std::make_pair(controlPointVerts[0].size() - 1, 0);
+		edges.push_back(edge);
+
+
 
 		cdt.insertEdges(
 			edges.begin(),
@@ -610,7 +617,8 @@ void draw(
 			[](const CustomEdge& e) { return e.vertices.first; },
 			[](const CustomEdge& e) { return e.vertices.second; }
 		);
-		*/
+
+		cdt.eraseOuterTrianglesAndHoles();
 
 		for (auto vertex : cdt.vertices) {
 			std::cout << vertex.x << ", " << vertex.y << std::endl;
@@ -625,8 +633,7 @@ void draw(
 		}
 
 
-		saveMeshToOBJ(cdt, "C:/Users/U/Documents/output3.obj");
-
+		saveMeshToOBJ(cdt, "C:/Users/dhktj/OneDrive/Desktop/output3.obj");
 		
 		cdt.triangles;
 		cdt.vertices;
