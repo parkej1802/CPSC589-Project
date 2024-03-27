@@ -451,7 +451,7 @@ void transform(
 	std::vector<std::vector<glm::vec3>>& transformedVerts) {
 
 	//transformedVerts.clear();
-	transformedVerts[0] = lineVerts[1];
+	transformedVerts[0] = lineVerts[0];
 
 	for (int i = 1; i < 3; i++) {
 		for (int j = 0; j < lineVerts[i].size(); j++) {
