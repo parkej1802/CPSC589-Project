@@ -99,6 +99,15 @@ void Bspline(std::vector<glm::vec3>& E, std::vector<glm::vec3>& result, int k, f
 	return;
 }
 
+struct CustomPoint2D
+{
+	double data[2];
+};
+
+struct CustomEdge
+{
+	std::pair<std::size_t, std::size_t> vertices;
+};
 
 // CALLBACKS
 class MyCallbacks : public CallbackInterface {
@@ -480,6 +489,44 @@ void draw(
 		}
 		transform(lineVerts, transformedVerts);
 		cross_section++;
+
+		
+		// CDT
+		CDT::Triangulation<double> cdt;
+		cdt.insertVertices(
+			controlPointVerts[0].begin(),
+			controlPointVerts[0].end(),
+			[](const glm::vec3& p) { return p.x; },
+			[](const glm::vec3& p) { return p.y; }
+		);
+
+		struct CustomEdge
+		{
+			std::pair<std::size_t, std::size_t> vertices;
+		};
+		
+		std::vector<CustomEdge> edges;
+		for (int i = 0; i < controlPointVerts[0].size() - 1; i++) {
+			CustomEdge edge;
+			edge.vertices = std::make_pair(i, i + 1);
+			edges.push_back(edge);
+		}
+
+		cdt.insertEdges(
+			edges.begin(),
+			edges.end(),
+			[](const CustomEdge& e) { return e.vertices.first; },
+			[](const CustomEdge& e) { return e.vertices.second; }
+		);
+		//cdt.eraseOuterTrianglesAndHoles();
+		
+
+		cdt.triangles;
+		cdt.vertices;
+		cdt.fixedEdges;
+		CDT::extractEdgesFromTriangles(cdt.triangles);
+
+		
 	}
 	else {
 		/*
@@ -509,10 +556,6 @@ void draw(
 }
 
 int main() {
-
-	// TEST
-	CDT::Triangulation<double> cdt;
-
 	Log::debug("Starting main");
 
 	// WINDOW
