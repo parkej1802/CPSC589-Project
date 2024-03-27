@@ -340,10 +340,13 @@ private:
 	GLint pLoc;
 };
 
+bool operator==(const glm::vec3& a, const glm::vec3& b) {
+	return a.x == b.x && a.y == b.y && a.z == b.z;
+		
+}
 // get control points of a line user provided
-std::vector<glm::vec3> get_control_points(std::vector<glm::vec3> &line,int smoothness) {
+std::vector<glm::vec3> get_control_points(std::vector<glm::vec3>& line, int smoothness) {
 	std::vector<glm::vec3> result;
-
 	int step_size = line.size() / smoothness;
 	int index = 0;
 
@@ -351,7 +354,11 @@ std::vector<glm::vec3> get_control_points(std::vector<glm::vec3> &line,int smoot
 		result.push_back(line[index]);
 		index += step_size;
 	}
-	return result; 
+
+	auto it = std::unique(result.begin(), result.end());
+	result.erase(it, result.end());
+
+	return result;
 }
 
 // flatten all line vectors to one vector
@@ -495,6 +502,7 @@ void saveMeshToOBJ(const CDT::Triangulation<double>& cdt, const std::string& fil
 	}
 
 	auto normals = calculateVertexNormals(cdt);
+
 	for (const auto& normal : normals) {
 		file << "vn " << normal.x << " " << normal.y << " " << normal.z << std::endl;
 	}
@@ -558,6 +566,28 @@ void draw(
 			[](const glm::vec3& p) { return p.y; }
 		);
 
+		struct CustomEdge {
+			std::pair<std::size_t, std::size_t> vertices;
+
+			CustomEdge(std::size_t first, std::size_t second) : vertices(first, second) {}
+		};
+
+		// Define and insert edges before finalizing the triangulation
+		std::vector<CustomEdge> edges;
+		for (int i = 0; i < controlPointVerts[0].size() - 1; i++) {
+			edges.emplace_back(i, i + 1);
+		}
+
+		cdt.insertEdges(
+			edges.begin(),
+			edges.end(),
+			[](const CustomEdge& e) { return e.vertices.first; },
+			[](const CustomEdge& e) { return e.vertices.second; }
+		);
+
+		cdt.eraseOuterTrianglesAndHoles();
+
+		/*
 		struct CustomEdge
 		{
 			std::pair<std::size_t, std::size_t> vertices;
@@ -576,7 +606,7 @@ void draw(
 			[](const CustomEdge& e) { return e.vertices.first; },
 			[](const CustomEdge& e) { return e.vertices.second; }
 		);
-		//cdt.eraseOuterTrianglesAndHoles();
+		*/
 
 		for (auto vertex : cdt.vertices) {
 			std::cout << vertex.x << ", " << vertex.y << std::endl;
@@ -590,20 +620,15 @@ void draw(
 			std::cout << edge.v1() << ", " << edge.v2() << std::endl;
 		}
 
-		auto normals = calculateVertexNormals(cdt);
 
-		for (const auto& normal : normals) {
-			std::cout << normal.x << ", " << normal.y << ", " << normal.z << std::endl;
-		}
+		//saveMeshToOBJ(cdt, "C:/Users/U/Documents/output3.obj");
 
-		saveMeshToOBJ(cdt, "C:/Users/U/Documents/output3.obj");
-
+		
 		cdt.triangles;
 		cdt.vertices;
 		cdt.fixedEdges;
 		CDT::extractEdgesFromTriangles(cdt.triangles);
 
-		
 	}
 	else {
 		/*
