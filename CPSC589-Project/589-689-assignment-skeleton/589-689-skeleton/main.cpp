@@ -431,15 +431,15 @@ void combine(
 	cpuGeom.verts.clear();
 	cpuGeom.cols.clear();
 
-	float x_angle = cb -> getXAngle(); 
-	glm::mat3 X_R = glm::mat3(cos(-x_angle),0, sin(-x_angle),
-							0,1,0,
-							-sin(-x_angle),0,cos(-x_angle));
+	float x_angle = cb->getXAngle();
+	glm::mat3 X_R = glm::mat3(cos(x_angle), 0, sin(x_angle),
+							  0, 1, 0,
+							  -sin(x_angle), 0, cos(x_angle));
 
 	float y_angle = cb->getYAngle();
-	glm::mat3 Y_R = glm::mat3(1, 0,0,
-							0, cos(-y_angle), -sin(-y_angle),
-							0, sin(-y_angle), cos(-y_angle));
+	glm::mat3 Y_R = glm::mat3(1, 0, 0,
+							  0, cos(y_angle), -sin(y_angle),
+							  0, sin(y_angle), cos(y_angle));
 
 	cpuGeom.verts = flattenLineVerts(lineVerts);
 	for (auto& vert : cpuGeom.verts) {
