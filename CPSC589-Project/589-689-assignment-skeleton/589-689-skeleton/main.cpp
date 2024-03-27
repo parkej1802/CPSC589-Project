@@ -558,7 +558,11 @@ void draw(
 
 		
 		// CDT
-		CDT::Triangulation<double> cdt;
+		//CDT::Triangulation<double> cdt;
+		auto cdt = CDT::Triangulation<double>(
+			CDT::VertexInsertionOrder::Auto,
+			CDT::IntersectingConstraintEdges::TryResolve,
+			0.);
 		cdt.insertVertices(
 			controlPointVerts[0].begin(),
 			controlPointVerts[0].end(),
@@ -621,7 +625,7 @@ void draw(
 		}
 
 
-		//saveMeshToOBJ(cdt, "C:/Users/U/Documents/output3.obj");
+		saveMeshToOBJ(cdt, "C:/Users/U/Documents/output3.obj");
 
 		
 		cdt.triangles;
