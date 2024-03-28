@@ -110,6 +110,13 @@ struct CustomEdge
 	std::pair<std::size_t, std::size_t> vertices;
 };
 
+struct Mesh
+{
+	std::vector<glm::vec3> vertices;
+	std::vector<glm::vec3> normals;
+	std::vector<glm::vec3> triangles;
+};
+
 // CALLBACKS
 class MyCallbacks : public CallbackInterface {
 
@@ -550,7 +557,7 @@ void draw(
 	else if(cross_section == 3){
 		// get control points
 		for (int i = 0; i < 3; i++) {
-			controlPointVerts[i] = get_control_points(lineVerts[i], 10);
+			controlPointVerts[i] = get_control_points(lineVerts[i], 50);
 			Bspline(controlPointVerts[i], bsplineVerts[i], k, ui);
 		}
 		transform(lineVerts, transformedVerts);
