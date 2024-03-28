@@ -570,31 +570,66 @@ void inflation(Mesh& mesh, std::vector<glm::vec3> Verts) {
 }
 */
 
-void inflation(Mesh& mesh, std::vector<glm::vec3> controlPoints) {
-	std::sort(controlPoints.begin(), controlPoints.end(), [](const glm::vec3& a, const glm::vec3& b) {
-		return a.y < b.y;
-		});
+
+
+void inflation(Mesh& mesh, const std::vector<glm::vec3>& controlPoints) {
+	std::vector<glm::vec3> filteredControlPoints;
+	std::copy_if(controlPoints.begin(), controlPoints.end(), std::back_inserter(filteredControlPoints),
+		[](const glm::vec3& cp) { return cp.z > 0; });
+
+	if (filteredControlPoints.empty()) return;
+
+	std::sort(filteredControlPoints.begin(), filteredControlPoints.end(),
+		[](const glm::vec3& a, const glm::vec3& b) { return a.y < b.y; });
 
 	for (auto& vert : mesh.vertices) {
-		auto it = std::lower_bound(controlPoints.begin(), controlPoints.end(), vert.y, [](const glm::vec3& point, float y) {
-			return point.y < y;
-			});
+		auto it = std::lower_bound(filteredControlPoints.begin(), filteredControlPoints.end(), vert,
+			[](const glm::vec3& cp, const glm::vec3& vert) { return cp.y < vert.y; });
 
-		if (it == controlPoints.begin()) {
-			vert.z = controlPoints.front().z;
+		if (it == filteredControlPoints.begin()) {
+			vert.z = it->z;
 		}
-		else if (it == controlPoints.end()) {
-			vert.z = controlPoints.back().z;
+		else if (it == filteredControlPoints.end()) {
+			vert.z = (it - 1)->z;
 		}
 		else {
-			const glm::vec3& high = *it;
 			const glm::vec3& low = *(it - 1);
-
+			const glm::vec3& high = *it;
 			float ratio = (vert.y - low.y) / (high.y - low.y);
 			vert.z = low.z + ratio * (high.z - low.z);
 		}
 	}
 }
+
+void inflationBack(Mesh& mesh, const std::vector<glm::vec3>& controlPoints) {
+	std::vector<glm::vec3> filteredControlPoints;
+	std::copy_if(controlPoints.begin(), controlPoints.end(), std::back_inserter(filteredControlPoints),
+		[](const glm::vec3& cp) { return cp.z < 0; });
+
+	if (filteredControlPoints.empty()) return;
+
+	std::sort(filteredControlPoints.begin(), filteredControlPoints.end(),
+		[](const glm::vec3& a, const glm::vec3& b) { return a.y < b.y; });
+
+	for (auto& vert : mesh.vertices) {
+		auto it = std::lower_bound(filteredControlPoints.begin(), filteredControlPoints.end(), vert,
+			[](const glm::vec3& cp, const glm::vec3& vert) { return cp.y < vert.y; });
+
+		if (it == filteredControlPoints.begin()) {
+			vert.z = it->z;
+		}
+		else if (it == filteredControlPoints.end()) {
+			vert.z = (it - 1)->z;
+		}
+		else {
+			const glm::vec3& low = *(it - 1);
+			const glm::vec3& high = *it;
+			float ratio = (vert.y - low.y) / (high.y - low.y);
+			vert.z = low.z + ratio * (high.z - low.z);
+		}
+	}
+}
+
 
 void draw(
 	std::shared_ptr<MyCallbacks>& cb,
