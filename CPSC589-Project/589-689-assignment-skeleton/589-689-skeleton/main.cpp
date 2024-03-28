@@ -470,30 +470,23 @@ void combine(
 	return;
 }
 
-std::vector<glm::vec3> calculateVertexNormals(const CDT::Triangulation<double>& cdt) {
-	std::vector<glm::vec3> normals(cdt.vertices.size(), glm::vec3(0.0f, 0.0f, 0.0f));
+std::vector<glm::vec3> calculateVertexNormals(Mesh mesh) {
+	std::vector<glm::vec3> temp;
+	for (const auto& triangle : mesh.triangles) {
+		auto v1_index = triangle[0] - 1;
+		auto v2_index = triangle[1] - 1;
+		auto v3_index = triangle[2] - 1;
 
-	for (const auto& triangle : cdt.triangles) {
-		auto v1_index = triangle.vertices[0];
-		auto v2_index = triangle.vertices[1];
-		auto v3_index = triangle.vertices[2];
-
-		glm::vec3 v1(cdt.vertices[v1_index].x, cdt.vertices[v1_index].y, 0.0f);
-		glm::vec3 v2(cdt.vertices[v2_index].x, cdt.vertices[v2_index].y, 0.0f);
-		glm::vec3 v3(cdt.vertices[v3_index].x, cdt.vertices[v3_index].y, 0.0f);
+		glm::vec3 v1(mesh.vertices[v1_index].x, mesh.vertices[v1_index].y, mesh.vertices[v1_index].z);
+		glm::vec3 v2(mesh.vertices[v2_index].x, mesh.vertices[v2_index].y, mesh.vertices[v2_index].z);
+		glm::vec3 v3(mesh.vertices[v3_index].x, mesh.vertices[v3_index].y, mesh.vertices[v3_index].z);
 
 		glm::vec3 normal = glm::normalize(glm::cross(v2 - v1, v3 - v1));
+		temp.push_back(normal);
 
-		normals[v1_index] += normal;
-		normals[v2_index] += normal;
-		normals[v3_index] += normal;
 	}
 
-	for (auto& normal : normals) {
-		normal = glm::normalize(normal);
-	}
-
-	return normals;
+	return temp;
 }
 
 void saveMeshToOBJ(const Mesh& mesh, const std::string& filename) {
@@ -533,9 +526,8 @@ Mesh get_mesh(const CDT::Triangulation<double>& cdt) {
 		mesh.vertices.push_back(temp);
 	}
 
-	auto normals = calculateVertexNormals(cdt);
-	for (const auto& normal : normals) {
-		glm::vec3 temp = glm::vec3(normal.x, normal.y, normal.z);
+	for (const auto& vertex : cdt.vertices) {
+		glm::vec3 temp = glm::vec3(0.0f, 0.0f, 1.0f);
 		mesh.normals.push_back(temp);
 	}
 
@@ -656,8 +648,10 @@ void draw(
 
 		Mesh mesh = get_mesh(cdt);
 		inflation(mesh, transformedVerts[1]);
-		saveMeshToOBJ(mesh, "C:/Users/dhktj/OneDrive/Desktop/output3.obj");
-		
+		mesh.normals = calculateVertexNormals(mesh);
+		//saveMeshToOBJ(mesh, "C:/Users/dhktj/OneDrive/Desktop/output3.obj");
+		saveMeshToOBJ(mesh, "C:/Users/U/Documents/ImaginationModeling/589-689-3D-skeleton/models/output3.obj");
+
 		cdt.triangles;
 		cdt.vertices;
 		cdt.fixedEdges;
