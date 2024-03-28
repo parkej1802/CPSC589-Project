@@ -114,7 +114,7 @@ struct Mesh
 {
 	std::vector<glm::vec3> vertices;
 	std::vector<glm::vec3> normals;
-	std::vector<glm::vec3> triangles;
+	std::vector<std::vector<int>> triangles;
 };
 
 // CALLBACKS
@@ -526,6 +526,30 @@ void saveMeshToOBJ(const CDT::Triangulation<double>& cdt, const std::string& fil
 	}
 
 	file.close();
+}
+
+Mesh get_mesh(const CDT::Triangulation<double>& cdt) {
+	Mesh mesh;
+
+	for (const auto& vertex : cdt.vertices) {
+		glm::vec3 vertex = glm::vec3(vertex.x, vertex.y, 0.0f);
+		mesh.vertices.push_back(vertex);
+	}
+
+	auto normals = calculateVertexNormals(cdt);
+	for (const auto& normal : normals) {
+		glm::vec3 normal = glm::vec3(normal.x, normal.y, 0.0f);
+		mesh.normals.push_back(normal);
+	}
+
+	for (const auto& triangle : cdt.triangles) {
+		std::vector<int> temp;
+		for (int i = 0; i < 3; ++i) {
+			int vertexIndex = triangle.vertices[i] + 1;
+			temp.push_back(vertexIndex);
+		}
+		mesh.triangles.push_back(temp);
+	}
 }
 
 void draw(
