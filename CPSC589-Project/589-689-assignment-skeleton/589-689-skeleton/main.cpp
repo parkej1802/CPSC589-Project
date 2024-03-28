@@ -429,6 +429,7 @@ void transform(
 	}
 }
 
+
 // show the user cross sections in 3D
 void combine(
 	std::shared_ptr<MyCallbacks>& cb,
@@ -470,23 +471,30 @@ void combine(
 	return;
 }
 
-std::vector<glm::vec3> calculateVertexNormals(Mesh mesh) {
-	std::vector<glm::vec3> temp;
+std::vector<glm::vec3> calculateVertexNormals(const Mesh& mesh) {
+	std::vector<glm::vec3> normals(mesh.vertices.size(), glm::vec3(0.0f, 0.0f, 0.0f));
+
 	for (const auto& triangle : mesh.triangles) {
 		auto v1_index = triangle[0] - 1;
 		auto v2_index = triangle[1] - 1;
 		auto v3_index = triangle[2] - 1;
 
-		glm::vec3 v1(mesh.vertices[v1_index].x, mesh.vertices[v1_index].y, mesh.vertices[v1_index].z);
-		glm::vec3 v2(mesh.vertices[v2_index].x, mesh.vertices[v2_index].y, mesh.vertices[v2_index].z);
-		glm::vec3 v3(mesh.vertices[v3_index].x, mesh.vertices[v3_index].y, mesh.vertices[v3_index].z);
+		const glm::vec3& v1 = mesh.vertices[v1_index];
+		const glm::vec3& v2 = mesh.vertices[v2_index];
+		const glm::vec3& v3 = mesh.vertices[v3_index];
 
 		glm::vec3 normal = glm::normalize(glm::cross(v2 - v1, v3 - v1));
-		temp.push_back(normal);
 
+		normals[v1_index] += normal;
+		normals[v2_index] += normal;
+		normals[v3_index] += normal;
 	}
 
-	return temp;
+	for (auto& normal : normals) {
+		normal = glm::normalize(normal);
+	}
+
+	return normals;
 }
 
 void saveMeshToOBJ(const Mesh& mesh, const std::string& filename) {
@@ -527,7 +535,7 @@ Mesh get_mesh(const CDT::Triangulation<double>& cdt) {
 	}
 
 	for (const auto& vertex : cdt.vertices) {
-		glm::vec3 temp = glm::vec3(0.0f, 0.0f, 1.0f);
+		glm::vec3 temp = glm::vec3(0.0, 0.0, 1.0f);
 		mesh.normals.push_back(temp);
 	}
 
@@ -543,12 +551,13 @@ Mesh get_mesh(const CDT::Triangulation<double>& cdt) {
 	return mesh;
 }
 
+/*
 void inflation(Mesh& mesh, std::vector<glm::vec3> Verts) {
 	std::unordered_map<float, float> yToZMap;
 	for (const auto& vert : Verts) {
 		if (vert.z > 0) {
 			yToZMap[vert.y] = vert.z;
-		}	
+		}
 	}
 
 	for (auto& vert : mesh.vertices) {
@@ -556,7 +565,34 @@ void inflation(Mesh& mesh, std::vector<glm::vec3> Verts) {
 		if (it != yToZMap.end()) {
 			vert.z = it->second;
 		}
-		
+
+	}
+}
+*/
+
+void inflation(Mesh& mesh, std::vector<glm::vec3> controlPoints) {
+	std::sort(controlPoints.begin(), controlPoints.end(), [](const glm::vec3& a, const glm::vec3& b) {
+		return a.y < b.y;
+		});
+
+	for (auto& vert : mesh.vertices) {
+		auto it = std::lower_bound(controlPoints.begin(), controlPoints.end(), vert.y, [](const glm::vec3& point, float y) {
+			return point.y < y;
+			});
+
+		if (it == controlPoints.begin()) {
+			vert.z = controlPoints.front().z;
+		}
+		else if (it == controlPoints.end()) {
+			vert.z = controlPoints.back().z;
+		}
+		else {
+			const glm::vec3& high = *it;
+			const glm::vec3& low = *(it - 1);
+
+			float ratio = (vert.y - low.y) / (high.y - low.y);
+			vert.z = low.z + ratio * (high.z - low.z);
+		}
 	}
 }
 
