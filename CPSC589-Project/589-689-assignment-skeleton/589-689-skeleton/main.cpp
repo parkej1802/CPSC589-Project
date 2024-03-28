@@ -551,6 +551,23 @@ Mesh get_mesh(const CDT::Triangulation<double>& cdt) {
 	return mesh;
 }
 
+void inflation(Mesh& mesh, std::vector<glm::vec3> Verts) {
+	std::unordered_map<float, float> yToZMap;
+	for (const auto& vert : Verts) {
+		if (vert.z > 0) {
+			yToZMap[vert.y] = vert.z;
+		}	
+	}
+
+	for (auto& vert : mesh.vertices) {
+		auto it = yToZMap.find(vert.y);
+		if (it != yToZMap.end()) {
+			vert.z = it->second;
+		}
+		
+	}
+}
+
 void draw(
 	std::shared_ptr<MyCallbacks>& cb,
 	std::vector<std::vector<glm::vec3>>& lineVerts, CPU_Geometry& lineCpu,
@@ -638,6 +655,7 @@ void draw(
 
 
 		Mesh mesh = get_mesh(cdt);
+		inflation(mesh, transformedVerts[1]);
 		saveMeshToOBJ(mesh, "C:/Users/dhktj/OneDrive/Desktop/output3.obj");
 		
 		cdt.triangles;
