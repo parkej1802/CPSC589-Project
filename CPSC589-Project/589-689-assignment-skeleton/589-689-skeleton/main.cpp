@@ -496,6 +496,7 @@ std::vector<glm::vec3> calculateVertexNormals(const CDT::Triangulation<double>& 
 	return normals;
 }
 
+/*
 void saveMeshToOBJ(const CDT::Triangulation<double>& cdt, const std::string& filename) {
 	std::ofstream file(filename);
 	if (!file.is_open()) {
@@ -527,19 +528,49 @@ void saveMeshToOBJ(const CDT::Triangulation<double>& cdt, const std::string& fil
 
 	file.close();
 }
+*/
+
+void saveMeshToOBJ(const Mesh& mesh, const std::string& filename) {
+	std::ofstream file(filename);
+	if (!file.is_open()) {
+		std::cerr << "Failed to open file for writing: " << filename << std::endl;
+		return;
+	}
+
+	for (const auto& vertex : mesh.vertices) {
+		file << "v " << vertex.x << " " << vertex.y << " " << vertex.z << std::endl;
+	}
+
+	for (const auto& normal : mesh.normals) {
+		file << "vn " << normal.x << " " << normal.y << " " << normal.z << std::endl;
+	}
+
+	file << "s 1" << std::endl;
+
+	for (const auto& triangle : mesh.triangles) {
+		file << "f";
+		for (int i = 0; i < 3; ++i) {
+			int vertexIndex = triangle[i] + 1;
+			file << " " << vertexIndex << "//" << vertexIndex;
+		}
+		file << std::endl;
+	}
+
+	file.close();
+}
 
 Mesh get_mesh(const CDT::Triangulation<double>& cdt) {
 	Mesh mesh;
 
 	for (const auto& vertex : cdt.vertices) {
-		glm::vec3 vertex = glm::vec3(vertex.x, vertex.y, 0.0f);
-		mesh.vertices.push_back(vertex);
+		glm::vec3 temp = glm::vec3(vertex.x, vertex.y, 0.0f);
+		mesh.vertices.push_back(temp);
 	}
 
 	auto normals = calculateVertexNormals(cdt);
 	for (const auto& normal : normals) {
-		glm::vec3 normal = glm::vec3(normal.x, normal.y, 0.0f);
-		mesh.normals.push_back(normal);
+		glm::vec3 temp = glm::vec3(normal.x, normal.y, normal.z);
+		mesh.normals.push_back(temp);
 	}
 
 	for (const auto& triangle : cdt.triangles) {
@@ -550,6 +581,8 @@ Mesh get_mesh(const CDT::Triangulation<double>& cdt) {
 		}
 		mesh.triangles.push_back(temp);
 	}
+
+	return mesh;
 }
 
 void draw(
@@ -601,30 +634,6 @@ void draw(
 			[](const glm::vec3& p) { return p.y; }
 		);
 
-		/*
-		struct CustomEdge {
-			std::pair<std::size_t, std::size_t> vertices;
-
-			CustomEdge(std::size_t first, std::size_t second) : vertices(first, second) {}
-		};
-
-		
-		// Define and insert edges before finalizing the triangulation
-		std::vector<CustomEdge> edges;
-		for (int i = 0; i < controlPointVerts[0].size() - 1; i++) {
-			edges.emplace_back(i, i + 1);
-		}
-
-		cdt.insertEdges(
-			edges.begin(),
-			edges.end(),
-			[](const CustomEdge& e) { return e.vertices.first; },
-			[](const CustomEdge& e) { return e.vertices.second; }
-		);
-		*/
-		
-
-		
 		struct CustomEdge
 		{
 			std::pair<std::size_t, std::size_t> vertices;
@@ -636,12 +645,10 @@ void draw(
 			edge.vertices = std::make_pair(i, i + 1);
 			edges.push_back(edge);
 		}
+
 		CustomEdge edge;
 		edge.vertices = std::make_pair(controlPointVerts[0].size() - 1, 0);
 		edges.push_back(edge);
-
-
-
 		cdt.insertEdges(
 			edges.begin(),
 			edges.end(),
@@ -664,7 +671,8 @@ void draw(
 		}
 
 
-		saveMeshToOBJ(cdt, "C:/Users/dhktj/OneDrive/Desktop/output3.obj");
+		Mesh mesh = get_mesh(cdt);
+		saveMeshToOBJ(mesh, "C:/Users/dhktj/OneDrive/Desktop/output3.obj");
 		
 		cdt.triangles;
 		cdt.vertices;
