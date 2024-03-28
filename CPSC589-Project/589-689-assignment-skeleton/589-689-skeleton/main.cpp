@@ -496,40 +496,6 @@ std::vector<glm::vec3> calculateVertexNormals(const CDT::Triangulation<double>& 
 	return normals;
 }
 
-/*
-void saveMeshToOBJ(const CDT::Triangulation<double>& cdt, const std::string& filename) {
-	std::ofstream file(filename);
-	if (!file.is_open()) {
-		std::cerr << "Failed to open file for writing: " << filename << std::endl;
-		return;
-	}
-
-
-	for (const auto& vertex : cdt.vertices) {
-		file << "v " << vertex.x << " " << vertex.y << " " << 0.0f << std::endl; 
-	}
-
-	auto normals = calculateVertexNormals(cdt);
-
-	for (const auto& normal : normals) {
-		file << "vn " << normal.x << " " << normal.y << " " << normal.z << std::endl;
-	}
-
-	file << "s 1" << std::endl; 
-
-	for (const auto& triangle : cdt.triangles) {
-		file << "f";
-		for (int i = 0; i < 3; ++i) {
-			int vertexIndex = triangle.vertices[i] + 1; 
-			file << " " << vertexIndex << "//" << vertexIndex; 
-		}
-		file << std::endl;
-	}
-
-	file.close();
-}
-*/
-
 void saveMeshToOBJ(const Mesh& mesh, const std::string& filename) {
 	std::ofstream file(filename);
 	if (!file.is_open()) {
@@ -550,7 +516,7 @@ void saveMeshToOBJ(const Mesh& mesh, const std::string& filename) {
 	for (const auto& triangle : mesh.triangles) {
 		file << "f";
 		for (int i = 0; i < 3; ++i) {
-			int vertexIndex = triangle[i] + 1;
+			int vertexIndex = triangle[i];
 			file << " " << vertexIndex << "//" << vertexIndex;
 		}
 		file << std::endl;
