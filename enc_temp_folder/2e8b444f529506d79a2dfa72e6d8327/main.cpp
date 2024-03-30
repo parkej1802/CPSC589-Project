@@ -669,7 +669,7 @@ void applySideInflationToTop(Mesh& sideMesh, Mesh& topMesh) {
 		}
 
 		// 윗면의 z 값을 옆면에서 선택된 z 값으로 설정
-		topVert.z = selectedZ;
+		topVert.z -= selectedZ;
 	}
 }
 
