@@ -632,9 +632,17 @@ void inflationBack(Mesh& mesh, const std::vector<glm::vec3>& controlPoints) {
 }
 
 
-std::vector<float> scan_y(const std::vector<glm::vec3>& lineVerts) {
+std::vector<float> scan_y(const std::vector<glm::vec3>& lineVerts, float division) {
 	std::vector<float> result;
 
+	float maxY = findFrontMaxY(lineVerts);
+	float minY = findFrontMinY(lineVerts);
+	float range = maxY - minY;
+	float step = range / division;
+
+	for (int i = 0; i <= division; i++) {
+		result[i] = minY + step * i;
+	}
 
 	return result;
 }
