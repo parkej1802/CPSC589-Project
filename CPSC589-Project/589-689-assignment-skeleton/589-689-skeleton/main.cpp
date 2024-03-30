@@ -631,10 +631,19 @@ void inflationBack(Mesh& mesh, const std::vector<glm::vec3>& controlPoints) {
 }
 
 
+std::vector<float> scan_y(const std::vector<glm::vec3>& lineVerts) {
+	std::vector<float> result;
+
+
+	return result;
+}
+
 void insert_Vertices(
 	CDT::Triangulation<double>& cdt,
 	const std::vector<glm::vec3>& lineVerts) {
-	
+
+	std::vector<float> lines = scan_y(lineVerts);
+
 	cdt.insertVertices({
 		{0.0, 0.0}
 		});
