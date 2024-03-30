@@ -620,7 +620,8 @@ void inflation_top(Mesh& mesh, const std::vector<glm::vec3>& controlPoints) {
 	}
 }
 
-void inflationBack(Mesh& mesh, const std::vector<glm::vec3>& controlPoints) {
+
+void back_inflation_side(Mesh& mesh, const std::vector<glm::vec3>& controlPoints) {
 	std::vector<glm::vec3> filteredControlPoints;
 	std::copy_if(controlPoints.begin(), controlPoints.end(), std::back_inserter(filteredControlPoints),
 		[](const glm::vec3& cp) { return cp.z < 0; });
@@ -647,6 +648,70 @@ void inflationBack(Mesh& mesh, const std::vector<glm::vec3>& controlPoints) {
 			vert.z = low.z + ratio * (high.z - low.z);
 		}
 	}
+}
+
+void back_inflation_top(Mesh& mesh, const std::vector<glm::vec3>& controlPoints) {
+	std::vector<glm::vec3> filteredControlPoints;
+	std::copy_if(controlPoints.begin(), controlPoints.end(), std::back_inserter(filteredControlPoints),
+		[](const glm::vec3& cp) { return cp.z < 0; });
+
+	if (filteredControlPoints.empty()) return;
+
+	std::sort(filteredControlPoints.begin(), filteredControlPoints.end(),
+		[](const glm::vec3& a, const glm::vec3& b) { return a.x < b.x; });
+
+	for (auto& vert : mesh.vertices) {
+		auto it = std::lower_bound(filteredControlPoints.begin(), filteredControlPoints.end(), vert,
+			[](const glm::vec3& cp, const glm::vec3& vert) { return cp.x < vert.x; });
+
+		if (it == filteredControlPoints.begin()) {
+			if (vert.z < it->z) {
+				vert.z = it->z;
+			}
+		}
+		else if (it == filteredControlPoints.end()) {
+			if (vert.z < (it - 1)->z) {
+				vert.z = (it - 1)->z;
+			}
+		}
+		else {
+			const glm::vec3& low = *(it - 1);
+			const glm::vec3& high = *it;
+			float ratio = (vert.x - low.x) / (high.x - low.x);
+			float newZ = low.z + ratio * (high.z - low.z);
+			if (vert.z < newZ) {
+				vert.z = newZ;
+			}
+		}
+	}
+}
+
+Mesh create3DObjectFromPlanarMeshes(const Mesh& frontMesh, const Mesh& backMesh) {
+	Mesh finalMesh;
+	finalMesh.vertices = frontMesh.vertices;
+	finalMesh.vertices.insert(finalMesh.vertices.end(), backMesh.vertices.begin(), backMesh.vertices.end());
+	finalMesh.triangles = frontMesh.triangles;
+
+	// 경계선의 정점을 연결하는 새로운 삼각형을 생성
+	int frontVerticesCount = frontMesh.vertices.size();
+	for (size_t i = 0; i < frontVerticesCount; ++i) {
+		int nextIndex = (i + 1) % frontVerticesCount;
+		std::vector<int> face = { i, nextIndex, frontVerticesCount + nextIndex };
+		finalMesh.triangles.push_back(face);
+		face = { i, frontVerticesCount + nextIndex, frontVerticesCount + i };
+		finalMesh.triangles.push_back(face);
+	}
+
+	// backMesh의 면을 추가
+	for (const auto& face : backMesh.triangles) {
+		std::vector<int> newFace;
+		for (int index : face) {
+			newFace.push_back(index + frontVerticesCount);
+		}
+		finalMesh.triangles.push_back(newFace);
+	}
+
+	return finalMesh;
 }
 
 
@@ -784,9 +849,20 @@ void draw(
 		inflation_side(front_mesh, transformedVerts[1]);
 		inflation_top(front_mesh, transformedVerts[2]);
 		front_mesh.normals = calculateVertexNormals(front_mesh);
-		saveMeshToOBJ(front_mesh, "C:/Users/dhktj/OneDrive/Desktop/output3.obj");
+		saveMeshToOBJ(front_mesh, "C:/Users/dhktj/OneDrive/Desktop/front.obj");
 		//saveMeshToOBJ(mesh, "C:/Users/U/Documents/ImaginationModeling/589-689-3D-skeleton/models/output3.obj");
-		
+
+
+		Mesh back_mesh = get_mesh(cdt);
+		back_inflation_side(back_mesh, transformedVerts[1]);
+		back_inflation_top(back_mesh, transformedVerts[2]);
+		back_mesh.normals = calculateVertexNormals(back_mesh);
+		for (auto& normal : back_mesh.normals) {
+			normal = -normal;
+		}
+
+		saveMeshToOBJ(back_mesh, "C:/Users/dhktj/OneDrive/Desktop/back.obj");
+		//saveMeshToOBJ(mesh, "C:/Users/U/Documents/ImaginationModeling/589-689-3D-skeleton/models/output3.obj");
 
 		cdt.triangles;
 		cdt.vertices;
