@@ -6,7 +6,7 @@
 #include <functional>
 #include <unordered_map>
 #include <fstream>
-
+#include <set>
 // Window.h `#include`s ImGui, GLFW, and glad in correct order.
 #include "Window.h"
 
@@ -22,6 +22,8 @@
 #include "glm/glm.hpp"
 #include "glm/gtc/type_ptr.hpp"
 #include "tool.h"
+#include "CDTUtils.h"
+
 
 CPU_Geometry grid;
 glm::vec3 red = glm::vec3(1, 0, 0);
@@ -649,8 +651,8 @@ std::vector<float> scan_y(const std::vector<glm::vec3>& lineVerts, float divisio
 
 std::vector<float> scan_x(float y_value, const std::vector<glm::vec3>& line) {
 	std::vector<float> x_values;
-	float minDist = std::numeric_limits<float>::max();
 	std::vector<float> closestX;
+	std::vector<float> result;
 
 	for (const auto& vert : line) {
 		if (vert.y == y_value) {
@@ -686,18 +688,39 @@ std::vector<float> scan_x(float y_value, const std::vector<glm::vec3>& line) {
 		float max_x = x_values.back();
 		float length = max_x - min_x;
 
-		std::vector<float> result;
 		for (int i = 1; i <= 3; ++i) {
 			float x = min_x + (length / 5) * i;
 			result.push_back(x);
 		}
-		return result;
+	}
+	return result;
+}
+
+std::pair<float, float> findClosestXForY(const std::vector<glm::vec3>& line, float y_value) {
+	std::pair<float, float> closestXValues(std::numeric_limits<float>::max(), std::numeric_limits<float>::lowest());
+	std::pair<float, float> closestDistances(std::numeric_limits<float>::max(), std::numeric_limits<float>::max());
+
+	for (const auto& vert : line) {
+		float dist = std::abs(vert.y - y_value);
+
+		if (dist < closestDistances.first) {
+			closestDistances.second = closestDistances.first;
+			closestXValues.second = closestXValues.first;
+
+			closestDistances.first = dist;
+			closestXValues.first = vert.x;
+		}
+		else if (dist < closestDistances.second) {
+			closestDistances.second = dist;
+			closestXValues.second = vert.x;
+		}
 	}
 
-	return {};
+	return closestXValues;
 }
 
 
+/*
 void insert_Vertices(
 	CDT::Triangulation<double>& cdt,
 	const std::vector<glm::vec3>& lineVerts) {
@@ -711,6 +734,31 @@ void insert_Vertices(
 		}
 	}
 }
+
+*/
+
+
+void insert_Vertices(
+	CDT::Triangulation<double>& cdt,
+	const std::vector<glm::vec3>& lineVerts) {
+
+	std::vector<float> y_lines = scan_y(lineVerts, 10);
+	std::set<std::pair<float, float>> insertedCoordinates;
+
+	for (float y : y_lines) {
+		std::vector<float> x_lines = scan_x(y, lineVerts);
+		for (float x : x_lines) {
+			std::pair<float, float> coordinate = std::make_pair(y, x);
+
+			if (insertedCoordinates.find(coordinate) == insertedCoordinates.end()) {
+				cdt.insertVertices({ { y, x } });
+				insertedCoordinates.insert(coordinate);
+			}
+		}
+	}
+}
+
+
 
 void draw(
 	std::shared_ptr<MyCallbacks>& cb,
@@ -760,6 +808,7 @@ void draw(
 			[](const glm::vec3& p) { return p.x; },
 			[](const glm::vec3& p) { return p.y; }
 		);
+
 		insert_Vertices(cdt, lineVerts[0]);
 		
 		struct CustomEdge
@@ -803,8 +852,8 @@ void draw(
 		Mesh mesh = get_mesh(cdt);
 		inflation(mesh, transformedVerts[1]);
 		mesh.normals = calculateVertexNormals(mesh);
-		saveMeshToOBJ(mesh, "C:/Users/dhktj/OneDrive/Desktop/output3.obj");
-		//saveMeshToOBJ(mesh, "C:/Users/U/Documents/ImaginationModeling/589-689-3D-skeleton/models/output3.obj");
+		//saveMeshToOBJ(mesh, "C:/Users/dhktj/OneDrive/Desktop/output3.obj");
+		saveMeshToOBJ(mesh, "C:/Users/U/Documents/ImaginationModeling/589-689-3D-skeleton/models/output3.obj");
 
 		cdt.triangles;
 		cdt.vertices;
