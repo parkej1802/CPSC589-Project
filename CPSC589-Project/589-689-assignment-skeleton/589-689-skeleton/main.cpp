@@ -21,7 +21,7 @@
 
 #include "glm/glm.hpp"
 #include "glm/gtc/type_ptr.hpp"
-#include "toolcheck.h"
+#include "tool.h"
 
 CPU_Geometry grid;
 glm::vec3 red = glm::vec3(1, 0, 0);
@@ -640,43 +640,45 @@ std::vector<float> scan_y(const std::vector<glm::vec3>& lineVerts, float divisio
 	float range = maxY - minY;
 	float step = range / division;
 
-	for (int i = 0; i <= division; i++) {
-		result[i] = minY + step * i;
+	for (int i = 1; i < division; i++) {
+		result.push_back(minY + step * i);
 	}
 
 	return result;
 }
 
-std::vector<float> scan_x(float y_value, const std::vector<glm::vec3>& lineVerts) {
+std::vector<float> scan_x(float y_value, const std::vector<glm::vec3>& lineVerts, float tolerance = 0.01f) {
 	std::vector<float> x_values;
 
-
 	for (const auto& vert : lineVerts) {
-		if (vert.y == y_value) {
+		if (std::abs(vert.y - y_value) <= tolerance) {
 			x_values.push_back(vert.x);
 		}
 	}
 
-	std::sort(x_values.begin(), x_values.end());
+	if (!x_values.empty()) {
+		std::sort(x_values.begin(), x_values.end());
+		float min_x = x_values.front();
+		float max_x = x_values.back();
+		float length = max_x - min_x;
 
-	float min_x = x_values.front();
-	float max_x = x_values.back();
-	float length = max_x - min_x;
-
-	std::vector<float> result;
-	for (int i = 1; i <= 3; ++i) {
-		float x = min_x + (length / 5) * i;
-		result.push_back(x);
+		std::vector<float> result;
+		for (int i = 1; i <= 3; ++i) {
+			float x = min_x + (length / 5) * i;
+			result.push_back(x);
+		}
+		return result;
 	}
 
-	return result;
+	return {};
 }
+
 
 void insert_Vertices(
 	CDT::Triangulation<double>& cdt,
 	const std::vector<glm::vec3>& lineVerts) {
 
-	std::vector<float> y_lines = scan_y(lineVerts);
+	std::vector<float> y_lines = scan_y(lineVerts, 7);
 
 	for (int i = 0; i < y_lines.size(); i++) {
 		std::vector<float> x_lines = scan_x(y_lines[i], lineVerts);
