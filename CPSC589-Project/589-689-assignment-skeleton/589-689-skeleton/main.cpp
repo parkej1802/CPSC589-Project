@@ -640,18 +640,17 @@ std::vector<float> scan_y(const std::vector<glm::vec3>& lineVerts, float divisio
 	float range = maxY - minY;
 	float step = range / division;
 
-	for (int i = 0; i <= division; i++) {
-		result[i] = minY + step * i;
+	for (int i = 1; i < division; i++) {
+		result.push_back(minY + step * i);
 	}
 
 	return result;
 }
 
-std::vector<float> scan_x(float y_value, const std::vector<glm::vec3>& lineVerts) {
+std::vector<float> scan_x(float y_value, const std::vector<glm::vec3>& line) {
 	std::vector<float> x_values;
 
-
-	for (const auto& vert : lineVerts) {
+	for (const auto& vert : line) {
 		if (vert.y == y_value) {
 			x_values.push_back(vert.x);
 		}
@@ -676,7 +675,7 @@ void insert_Vertices(
 	CDT::Triangulation<double>& cdt,
 	const std::vector<glm::vec3>& lineVerts) {
 
-	std::vector<float> y_lines = scan_y(lineVerts);
+	std::vector<float> y_lines = scan_y(lineVerts, 7);
 
 	for (int i = 0; i < y_lines.size(); i++) {
 		std::vector<float> x_lines = scan_x(y_lines[i], lineVerts);
