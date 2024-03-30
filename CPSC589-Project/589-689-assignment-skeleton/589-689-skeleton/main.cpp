@@ -647,11 +647,11 @@ std::vector<float> scan_y(const std::vector<glm::vec3>& lineVerts, float divisio
 	return result;
 }
 
-std::vector<float> scan_x(float y_value, const std::vector<glm::vec3>& lineVerts, float tolerance = 0.01f) {
+std::vector<float> scan_x(float y_value, const std::vector<glm::vec3>& line) {
 	std::vector<float> x_values;
 
-	for (const auto& vert : lineVerts) {
-		if (std::abs(vert.y - y_value) <= tolerance) {
+	for (const auto& vert : line) {
+		if (vert.y == y_value) {
 			x_values.push_back(vert.x);
 		}
 	}
