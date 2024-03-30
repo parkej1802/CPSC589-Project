@@ -554,26 +554,6 @@ Mesh get_mesh(const CDT::Triangulation<double>& cdt) {
 	return mesh;
 }
 
-/*
-void inflation(Mesh& mesh, std::vector<glm::vec3> Verts) {
-	std::unordered_map<float, float> yToZMap;
-	for (const auto& vert : Verts) {
-		if (vert.z > 0) {
-			yToZMap[vert.y] = vert.z;
-		}
-	}
-
-	for (auto& vert : mesh.vertices) {
-		auto it = yToZMap.find(vert.y);
-		if (it != yToZMap.end()) {
-			vert.z = it->second;
-		}
-
-	}
-}
-*/
-
-
 
 void inflation(Mesh& mesh, const std::vector<glm::vec3>& controlPoints) {
 	std::vector<glm::vec3> filteredControlPoints;
@@ -634,131 +614,44 @@ void inflationBack(Mesh& mesh, const std::vector<glm::vec3>& controlPoints) {
 }
 
 
-std::vector<float> scan_y(const std::vector<glm::vec3>& lineVerts, float division) {
-	std::vector<float> result;
+bool isPointInsidePolygon(const glm::vec3& point, const std::vector<glm::vec3>& polygon) {
+	int intersections = 0;
+	for (size_t i = 0; i < polygon.size(); ++i) {
+		const glm::vec3& start = polygon[i];
+		const glm::vec3& end = polygon[(i + 1) % polygon.size()];
 
-	float maxY = findFrontMaxY(lineVerts);
-	float minY = findFrontMinY(lineVerts);
-	float range = maxY - minY;
-	float step = range / division;
-
-	for (int i = 1; i < division; i++) {
-		result.push_back(minY + step * i);
-	}
-
-	return result;
-}
-
-std::vector<float> scan_x(float y_value, const std::vector<glm::vec3>& line) {
-	std::vector<float> x_values;
-	std::vector<float> closestX;
-	std::vector<float> result;
-
-	for (const auto& vert : line) {
-		if (vert.y == y_value) {
-			x_values.push_back(vert.x);
-		}
-		
-	}
-
-	if (x_values.empty()) {
-		float closestYDist = std::numeric_limits<float>::max();
-		std::vector<float> closestX;
-
-		for (const auto& vert : line) {
-			float yDist = std::abs(vert.y - y_value);
-
-			if (yDist < closestYDist) {
-				closestYDist = yDist;
-				closestX.clear();
-				closestX.push_back(vert.x);
-			}
-			else if (yDist == closestYDist) {
-				closestX.push_back(vert.x);
+		// 포인트와 폴리곤 에지가 y-좌표에서 겹치는지 확인
+		if ((start.y <= point.y && point.y < end.y) || (end.y <= point.y && point.y < start.y)) {
+			// 수평선이 에지와 교차하는 x-좌표 계산
+			float x = start.x + (point.y - start.y) * (end.x - start.x) / (end.y - start.y);
+			// 교차점이 포인트의 오른쪽에 있으면 교차 횟수 증가
+			if (point.x < x) {
+				++intersections;
 			}
 		}
-
-		x_values = closestX;
 	}
-
-
-	if (!x_values.empty()) {
-		std::sort(x_values.begin(), x_values.end());
-		float min_x = x_values.front();
-		float max_x = x_values.back();
-		float length = max_x - min_x;
-
-		for (int i = 1; i <= 3; ++i) {
-			float x = min_x + (length / 5) * i;
-			result.push_back(x);
-		}
-	}
-	return result;
+	return (intersections % 2) != 0;
 }
-
-std::pair<float, float> findClosestXForY(const std::vector<glm::vec3>& line, float y_value) {
-	std::pair<float, float> closestXValues(std::numeric_limits<float>::max(), std::numeric_limits<float>::lowest());
-	std::pair<float, float> closestDistances(std::numeric_limits<float>::max(), std::numeric_limits<float>::max());
-
-	for (const auto& vert : line) {
-		float dist = std::abs(vert.y - y_value);
-
-		if (dist < closestDistances.first) {
-			closestDistances.second = closestDistances.first;
-			closestXValues.second = closestXValues.first;
-
-			closestDistances.first = dist;
-			closestXValues.first = vert.x;
-		}
-		else if (dist < closestDistances.second) {
-			closestDistances.second = dist;
-			closestXValues.second = vert.x;
-		}
-	}
-
-	return closestXValues;
-}
-
-
-/*
-void insert_Vertices(
-	CDT::Triangulation<double>& cdt,
-	const std::vector<glm::vec3>& lineVerts) {
-
-	std::vector<float> y_lines = scan_y(lineVerts, 7);
-
-	for (int i = 0; i < y_lines.size(); i++) {
-		std::vector<float> x_lines = scan_x(y_lines[i], lineVerts);
-		for (int j = 0; j < x_lines.size(); j++) {
-			cdt.insertVertices({ { y_lines[i], x_lines[j]} });
-		}
-	}
-}
-
-*/
-
 
 void insert_Vertices(
 	CDT::Triangulation<double>& cdt,
-	const std::vector<glm::vec3>& lineVerts) {
+	const std::vector<glm::vec3>& line) {
 
-	std::vector<float> y_lines = scan_y(lineVerts, 10);
-	std::set<std::pair<float, float>> insertedCoordinates;
-
-	for (float y : y_lines) {
-		std::vector<float> x_lines = scan_x(y, lineVerts);
-		for (float x : x_lines) {
-			std::pair<float, float> coordinate = std::make_pair(y, x);
-
-			if (insertedCoordinates.find(coordinate) == insertedCoordinates.end()) {
-				cdt.insertVertices({ { y, x } });
-				insertedCoordinates.insert(coordinate);
+	float minX = findFrontMinX(line);
+	float maxX = findFrontMaxX(line);
+	float minY = findFrontMinY(line);
+	float maxY = findFrontMaxY(line);
+	
+	
+	for (float y = minY; y <= maxY; y += 0.1f) {
+		for (float x = minX; x <= maxX; x += 0.1f) {
+			glm::vec3 newPoint(x, y, 0.0f);
+			if (isPointInsidePolygon(newPoint, line)) {
+				cdt.insertVertices({ { x, y} });
 			}
 		}
 	}
 }
-
-
 
 void draw(
 	std::shared_ptr<MyCallbacks>& cb,
@@ -852,8 +745,8 @@ void draw(
 		Mesh mesh = get_mesh(cdt);
 		inflation(mesh, transformedVerts[1]);
 		mesh.normals = calculateVertexNormals(mesh);
-		//saveMeshToOBJ(mesh, "C:/Users/dhktj/OneDrive/Desktop/output3.obj");
-		saveMeshToOBJ(mesh, "C:/Users/U/Documents/ImaginationModeling/589-689-3D-skeleton/models/output3.obj");
+		saveMeshToOBJ(mesh, "C:/Users/dhktj/OneDrive/Desktop/output3.obj");
+		//saveMeshToOBJ(mesh, "C:/Users/U/Documents/ImaginationModeling/589-689-3D-skeleton/models/output3.obj");
 
 		cdt.triangles;
 		cdt.vertices;
