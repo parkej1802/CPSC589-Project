@@ -555,7 +555,7 @@ Mesh get_mesh(const CDT::Triangulation<double>& cdt) {
 }
 
 
-void inflation(Mesh& mesh, const std::vector<glm::vec3>& controlPoints) {
+void inflation_side(Mesh& mesh, const std::vector<glm::vec3>& controlPoints) {
 	std::vector<glm::vec3> filteredControlPoints;
 	std::copy_if(controlPoints.begin(), controlPoints.end(), std::back_inserter(filteredControlPoints),
 	[](const glm::vec3& cp) { return cp.z > 0; });
@@ -580,6 +580,42 @@ void inflation(Mesh& mesh, const std::vector<glm::vec3>& controlPoints) {
 			const glm::vec3& high = *it;
 			float ratio = (vert.y - low.y) / (high.y - low.y);
 			vert.z = low.z + ratio * (high.z - low.z);
+		}
+	}
+}
+
+void inflation_top(Mesh& mesh, const std::vector<glm::vec3>& controlPoints) {
+	std::vector<glm::vec3> filteredControlPoints;
+	std::copy_if(controlPoints.begin(), controlPoints.end(), std::back_inserter(filteredControlPoints),
+		[](const glm::vec3& cp) { return cp.z > 0; });
+
+	if (filteredControlPoints.empty()) return;
+
+	std::sort(filteredControlPoints.begin(), filteredControlPoints.end(),
+		[](const glm::vec3& a, const glm::vec3& b) { return a.x < b.x; });
+
+	for (auto& vert : mesh.vertices) {
+		auto it = std::lower_bound(filteredControlPoints.begin(), filteredControlPoints.end(), vert,
+			[](const glm::vec3& cp, const glm::vec3& vert) { return cp.x < vert.x; });
+
+		if (it == filteredControlPoints.begin()) {
+			if (vert.z > it->z) {
+				vert.z = it->z;
+			}
+		}
+		else if (it == filteredControlPoints.end()) {
+			if (vert.z > (it - 1)->z) {
+				vert.z = (it - 1)->z;
+			}
+		}
+		else {
+			const glm::vec3& low = *(it - 1);
+			const glm::vec3& high = *it;
+			float ratio = (vert.x - low.x) / (high.x - low.x);
+			float newZ = low.z + ratio * (high.z - low.z);
+			if (vert.z > newZ) {
+				vert.z = newZ;
+			}
 		}
 	}
 }
@@ -652,27 +688,6 @@ void insert_Vertices(
 		}
 	}
 }
-
-void applySideInflationToTop(Mesh& sideMesh, Mesh& topMesh) {
-	// 옆면의 변형된 z 값을 매핑하여 윗면에 적용
-	for (auto& topVert : topMesh.vertices) {
-		float closestDist = std::numeric_limits<float>::max();
-		float selectedZ = 0.0f;
-
-		// 가장 가까운 옆면의 점 찾기
-		for (const auto& sideVert : sideMesh.vertices) {
-			float dist = std::abs(topVert.x - sideVert.x);  // x 좌표 기준으로 가까운 점 찾기
-			if (dist < closestDist) {
-				closestDist = dist;
-				selectedZ = sideVert.z;  // 옆면의 z 값 선택
-			}
-		}
-
-		// 윗면의 z 값을 옆면에서 선택된 z 값으로 설정
-		topVert.z = selectedZ;
-	}
-}
-
 
 
 void draw(
@@ -764,21 +779,14 @@ void draw(
 		}
 
 
-/*
-		Mesh mesh = get_mesh(cdt);
-		inflation(mesh, transformedVerts[1]);
-		inflation(mesh, transformedVerts[2]);
-		mesh.normals = calculateVertexNormals(mesh);
-		//saveMeshToOBJ(mesh, "C:/Users/dhktj/OneDrive/Desktop/output3.obj");
-		saveMeshToOBJ(mesh, "C:/Users/U/Documents/ImaginationModeling/589-689-3D-skeleton/models/output3.obj");
-		*/
 
-		Mesh sideMesh = get_mesh(cdt);  // 옆면 메시
-		Mesh topMesh = get_mesh(cdt);
-		inflation(sideMesh, transformedVerts[1]);  // 옆면 inflation 처리
-		applySideInflationToTop(sideMesh, topMesh);  // 옆면 변형을 윗면에 적용
-		topMesh.normals = calculateVertexNormals(topMesh);
-		saveMeshToOBJ(topMesh, "C:/Users/U/Documents/ImaginationModeling/589-689-3D-skeleton/models/output3.obj");
+		Mesh mesh = get_mesh(cdt);
+		inflation_side(mesh, transformedVerts[1]);
+		inflation_top(mesh, transformedVerts[2]);
+		mesh.normals = calculateVertexNormals(mesh);
+		saveMeshToOBJ(mesh, "C:/Users/dhktj/OneDrive/Desktop/output3.obj");
+		//saveMeshToOBJ(mesh, "C:/Users/U/Documents/ImaginationModeling/589-689-3D-skeleton/models/output3.obj");
+		
 
 		cdt.triangles;
 		cdt.vertices;
