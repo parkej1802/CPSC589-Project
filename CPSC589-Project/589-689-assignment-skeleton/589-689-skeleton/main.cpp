@@ -21,6 +21,7 @@
 
 #include "glm/glm.hpp"
 #include "glm/gtc/type_ptr.hpp"
+#include "tool.h"
 
 CPU_Geometry grid;
 glm::vec3 red = glm::vec3(1, 0, 0);
@@ -165,11 +166,11 @@ public:
 			leftMouseActiveVal = true;
 			lastLeftPressedFrame = currentFrame;
 		}
-		/*
+		
 		if (button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_PRESS) {
 			lastRightPressedFrame = currentFrame;
 		}
-		*/
+		
 
 		if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_RELEASE) {
 			leftMouseActiveVal = false;
@@ -827,9 +828,28 @@ int main() {
 
 		// when the left button gets pressed increase the cross_section
 		if (cb->leftMouseJustPressed()) {
+			std::cout << "Position: " << glm::vec3(cb->getCursorPosGL(), 0.f) << std::endl;
 			if (cross_section < 5) cross_section++;
 		}
 
+		if (cb->rightMouseJustPressed()) {
+
+			float maxFY = findFrontMaxY(transformedVerts[0]);
+			float maxFX = findFrontMaxX(transformedVerts[0]);
+			float minFY = findFrontMinY(transformedVerts[0]);
+			float minFX = findFrontMinX(transformedVerts[0]);
+			std::cout << "Max Front X : " << maxFX << std::endl;
+			std::cout << "Max Front Y : " << maxFY << std::endl;
+			std::cout << "Min Front X : " << minFX << std::endl;
+			std::cout << "Min Front Y : " << minFY << std::endl;
+
+			float maxSY = findSideMaxY(transformedVerts[1]);
+			float maxSZ = findSideMaxZ(transformedVerts[1]);
+			std::cout << "Max Side Y : " << maxSY << std::endl;
+			std::cout << "Max Side Z : " << maxSZ << std::endl;
+
+
+		}
 
 		/*
 		else if (cb->rightMouseJustPressed()) {
