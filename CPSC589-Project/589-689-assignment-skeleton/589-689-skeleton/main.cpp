@@ -649,12 +649,36 @@ std::vector<float> scan_y(const std::vector<glm::vec3>& lineVerts, float divisio
 
 std::vector<float> scan_x(float y_value, const std::vector<glm::vec3>& line) {
 	std::vector<float> x_values;
+	float minDist = std::numeric_limits<float>::max();
+	std::vector<float> closestX;
 
 	for (const auto& vert : line) {
 		if (vert.y == y_value) {
 			x_values.push_back(vert.x);
 		}
+		
 	}
+
+	if (x_values.empty()) {
+		float closestYDist = std::numeric_limits<float>::max();
+		std::vector<float> closestX;
+
+		for (const auto& vert : line) {
+			float yDist = std::abs(vert.y - y_value);
+
+			if (yDist < closestYDist) {
+				closestYDist = yDist;
+				closestX.clear();
+				closestX.push_back(vert.x);
+			}
+			else if (yDist == closestYDist) {
+				closestX.push_back(vert.x);
+			}
+		}
+
+		x_values = closestX;
+	}
+
 
 	if (!x_values.empty()) {
 		std::sort(x_values.begin(), x_values.end());
