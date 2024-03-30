@@ -780,11 +780,11 @@ void draw(
 
 
 
-		Mesh mesh = get_mesh(cdt);
-		inflation_side(mesh, transformedVerts[1]);
-		inflation_top(mesh, transformedVerts[2]);
-		mesh.normals = calculateVertexNormals(mesh);
-		saveMeshToOBJ(mesh, "C:/Users/dhktj/OneDrive/Desktop/output3.obj");
+		Mesh front_mesh = get_mesh(cdt);
+		inflation_side(front_mesh, transformedVerts[1]);
+		inflation_top(front_mesh, transformedVerts[2]);
+		front_mesh.normals = calculateVertexNormals(front_mesh);
+		saveMeshToOBJ(front_mesh, "C:/Users/dhktj/OneDrive/Desktop/output3.obj");
 		//saveMeshToOBJ(mesh, "C:/Users/U/Documents/ImaginationModeling/589-689-3D-skeleton/models/output3.obj");
 		
 
