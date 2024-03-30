@@ -575,7 +575,7 @@ void inflation(Mesh& mesh, std::vector<glm::vec3> Verts) {
 void inflation(Mesh& mesh, const std::vector<glm::vec3>& controlPoints) {
 	std::vector<glm::vec3> filteredControlPoints;
 	std::copy_if(controlPoints.begin(), controlPoints.end(), std::back_inserter(filteredControlPoints),
-		[](const glm::vec3& cp) { return cp.z > 0; });
+	[](const glm::vec3& cp) { return cp.z > 0; });
 
 	if (filteredControlPoints.empty()) return;
 
@@ -631,6 +631,15 @@ void inflationBack(Mesh& mesh, const std::vector<glm::vec3>& controlPoints) {
 }
 
 
+void insert_Vertices(
+	CDT::Triangulation<double>& cdt,
+	const std::vector<glm::vec3>& lineVerts) {
+	
+	cdt.insertVertices({
+		{0.0, 0.0}
+		});
+}
+
 void draw(
 	std::shared_ptr<MyCallbacks>& cb,
 	std::vector<std::vector<glm::vec3>>& lineVerts, CPU_Geometry& lineCpu,
@@ -679,7 +688,8 @@ void draw(
 			[](const glm::vec3& p) { return p.x; },
 			[](const glm::vec3& p) { return p.y; }
 		);
-
+		insert_Vertices(cdt, lineVerts[0]);
+		
 		struct CustomEdge
 		{
 			std::pair<std::size_t, std::size_t> vertices;
@@ -703,6 +713,7 @@ void draw(
 		);
 
 		cdt.eraseOuterTrianglesAndHoles();
+		//cdt.eraseSuperTriangle();
 
 		for (auto vertex : cdt.vertices) {
 			std::cout << vertex.x << ", " << vertex.y << std::endl;
@@ -720,8 +731,8 @@ void draw(
 		Mesh mesh = get_mesh(cdt);
 		inflation(mesh, transformedVerts[1]);
 		mesh.normals = calculateVertexNormals(mesh);
-		//saveMeshToOBJ(mesh, "C:/Users/dhktj/OneDrive/Desktop/output3.obj");
-		saveMeshToOBJ(mesh, "C:/Users/U/Documents/ImaginationModeling/589-689-3D-skeleton/models/output3.obj");
+		saveMeshToOBJ(mesh, "C:/Users/dhktj/OneDrive/Desktop/output3.obj");
+		//saveMeshToOBJ(mesh, "C:/Users/U/Documents/ImaginationModeling/589-689-3D-skeleton/models/output3.obj");
 
 		cdt.triangles;
 		cdt.vertices;
@@ -755,12 +766,6 @@ void draw(
 
 	return;
 }
-
-
-struct Face {
-	int v1, v2, v3;
-};
-
 
 
 int main() {
