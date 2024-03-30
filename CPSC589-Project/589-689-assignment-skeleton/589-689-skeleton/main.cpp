@@ -21,7 +21,7 @@
 
 #include "glm/glm.hpp"
 #include "glm/gtc/type_ptr.hpp"
-#include "tool.h"
+#include "toolcheck.h"
 
 CPU_Geometry grid;
 glm::vec3 red = glm::vec3(1, 0, 0);
