@@ -723,7 +723,7 @@ void connectPlanarMeshes(Mesh& frontMesh, const Mesh& backMesh, const std::vecto
 		frontMesh.triangles.push_back(newTriangle);
 	}
 
-	for (int i = 0; i < controlPoints.size() - 1; i++) {
+	for (int i = 0; i < controlPoints.size(); i++) {
 		// Find vertices in frontMesh and backMesh that match controlPoints[i] and controlPoints[i+1]
 		int frontIndexA = -1, backIndexA = -1;
 		int frontIndexB = -1, backIndexB = -1;
@@ -736,10 +736,16 @@ void connectPlanarMeshes(Mesh& frontMesh, const Mesh& backMesh, const std::vecto
 		}
 
 		for (int j = 0; j < frontMesh.vertices.size(); j++) {
-			if (glm::vec2(frontMesh.vertices[j].x, frontMesh.vertices[j].y) == glm::vec2(controlPoints[i + 1].x, controlPoints[i + 1].y)) {
-				frontIndexB = j;
-				break; // Found the matching vertex, no need to continue searching
+			if (i < controlPoints.size() - 1) {
+				if (glm::vec2(frontMesh.vertices[j].x, frontMesh.vertices[j].y) == glm::vec2(controlPoints[i + 1].x, controlPoints[i + 1].y)) {
+					frontIndexB = j;
+					break; // Found the matching vertex, no need to continue searching
+				}
 			}
+			else {
+				frontIndexB = 0;
+			}
+			
 		}
 
 		for (int j = 0; j < backMesh.vertices.size(); j++) {
@@ -750,9 +756,14 @@ void connectPlanarMeshes(Mesh& frontMesh, const Mesh& backMesh, const std::vecto
 		}
 
 		for (int j = 0; j < backMesh.vertices.size(); j++) {
-			if (glm::vec2(backMesh.vertices[j].x, backMesh.vertices[j].y) == glm::vec2(controlPoints[i + 1].x, controlPoints[i + 1].y)) {
-				backIndexB = j + frontVerticesCount;
-				break; // Found the matching vertex, no need to continue searching
+			if (i < controlPoints.size() - 1) {
+				if (glm::vec2(backMesh.vertices[j].x, backMesh.vertices[j].y) == glm::vec2(controlPoints[i + 1].x, controlPoints[i + 1].y)) {
+					backIndexB = j + frontVerticesCount;
+					break; // Found the matching vertex, no need to continue searching
+				}
+			}
+			else {
+				backIndexB = frontVerticesCount;
 			}
 		}
 
