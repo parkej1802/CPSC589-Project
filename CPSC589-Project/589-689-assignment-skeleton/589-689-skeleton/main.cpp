@@ -529,7 +529,7 @@ void saveMeshToOBJ(const Mesh& mesh, const std::string& filename) {
 	file.close();
 }
 
-Mesh get_mesh(const CDT::Triangulation<double>& cdt) {
+Mesh get_front_mesh(const CDT::Triangulation<double>& cdt) {
 	Mesh mesh;
 
 	for (const auto& vertex : cdt.vertices) {
@@ -545,6 +545,31 @@ Mesh get_mesh(const CDT::Triangulation<double>& cdt) {
 	for (const auto& triangle : cdt.triangles) {
 		std::vector<int> temp;
 		for (int i = 0; i < 3; ++i) {
+			int vertexIndex = triangle.vertices[i] + 1;
+			temp.push_back(vertexIndex);
+		}
+		mesh.triangles.push_back(temp);
+	}
+
+	return mesh;
+}
+
+Mesh get_back_mesh(const CDT::Triangulation<double>& cdt) {
+	Mesh mesh;
+
+	for (const auto& vertex : cdt.vertices) {
+		glm::vec3 temp = glm::vec3(vertex.x, vertex.y, 0.0f);
+		mesh.vertices.push_back(temp);
+	}
+
+	for (const auto& vertex : cdt.vertices) {
+		glm::vec3 temp = glm::vec3(0.0, 0.0, 1.0f);
+		mesh.normals.push_back(temp);
+	}
+
+	for (const auto& triangle : cdt.triangles) {
+		std::vector<int> temp;
+		for (int i = 2; i >= 0; --i) {
 			int vertexIndex = triangle.vertices[i] + 1;
 			temp.push_back(vertexIndex);
 		}
@@ -686,32 +711,58 @@ void back_inflation_top(Mesh& mesh, const std::vector<glm::vec3>& controlPoints)
 	}
 }
 
-Mesh create3DObjectFromPlanarMeshes(const Mesh& frontMesh, const Mesh& backMesh) {
-	Mesh finalMesh;
-	finalMesh.vertices = frontMesh.vertices;
-	finalMesh.vertices.insert(finalMesh.vertices.end(), backMesh.vertices.begin(), backMesh.vertices.end());
-	finalMesh.triangles = frontMesh.triangles;
-
-	// 경계선의 정점을 연결하는 새로운 삼각형을 생성
+void connectPlanarMeshes(Mesh& frontMesh, const Mesh& backMesh, const std::vector<glm::vec3>& controlPoints) {
 	int frontVerticesCount = frontMesh.vertices.size();
-	for (size_t i = 0; i < frontVerticesCount; ++i) {
-		int nextIndex = (i + 1) % frontVerticesCount;
-		std::vector<int> face = { i, nextIndex, frontVerticesCount + nextIndex };
-		finalMesh.triangles.push_back(face);
-		face = { i, frontVerticesCount + nextIndex, frontVerticesCount + i };
-		finalMesh.triangles.push_back(face);
+
+	// backMesh의 정점과 삼각형을 frontMesh에 추가
+	frontMesh.vertices.insert(frontMesh.vertices.end(), backMesh.vertices.begin(), backMesh.vertices.end());
+	frontMesh.normals.insert(frontMesh.normals.end(), backMesh.normals.begin(), backMesh.normals.end());
+
+	for (const auto& triangle : backMesh.triangles) {
+		std::vector<int> newTriangle = { triangle[0] + frontVerticesCount, triangle[1] + frontVerticesCount, triangle[2] + frontVerticesCount };
+		frontMesh.triangles.push_back(newTriangle);
 	}
 
-	// backMesh의 면을 추가
-	for (const auto& face : backMesh.triangles) {
-		std::vector<int> newFace;
-		for (int index : face) {
-			newFace.push_back(index + frontVerticesCount);
+	for (int i = 0; i < controlPoints.size() - 1; i++) {
+		// Find vertices in frontMesh and backMesh that match controlPoints[i] and controlPoints[i+1]
+		int frontIndexA = -1, backIndexA = -1;
+		int frontIndexB = -1, backIndexB = -1;
+
+		for (int j = 0; j < frontMesh.vertices.size(); j++) {
+			if (glm::vec2(frontMesh.vertices[j].x, frontMesh.vertices[j].y) == glm::vec2(controlPoints[i].x, controlPoints[i].y)) {
+				frontIndexA = j;
+				break; // Found the matching vertex, no need to continue searching
+			}
 		}
-		finalMesh.triangles.push_back(newFace);
-	}
 
-	return finalMesh;
+		for (int j = 0; j < frontMesh.vertices.size(); j++) {
+			if (glm::vec2(frontMesh.vertices[j].x, frontMesh.vertices[j].y) == glm::vec2(controlPoints[i + 1].x, controlPoints[i + 1].y)) {
+				frontIndexB = j;
+				break; // Found the matching vertex, no need to continue searching
+			}
+		}
+
+		for (int j = 0; j < backMesh.vertices.size(); j++) {
+			if (glm::vec2(backMesh.vertices[j].x, backMesh.vertices[j].y) == glm::vec2(controlPoints[i].x, controlPoints[i].y)) {
+				backIndexA = j + frontVerticesCount;
+				break; // Found the matching vertex, no need to continue searching
+			}
+		}
+
+		for (int j = 0; j < backMesh.vertices.size(); j++) {
+			if (glm::vec2(backMesh.vertices[j].x, backMesh.vertices[j].y) == glm::vec2(controlPoints[i + 1].x, controlPoints[i + 1].y)) {
+				backIndexB = j + frontVerticesCount;
+				break; // Found the matching vertex, no need to continue searching
+			}
+		}
+
+		// Connect the vertices with triangles
+		if (frontIndexA != -1 && frontIndexB != -1 && backIndexA != -1 && backIndexB != -1) {
+			frontMesh.triangles.push_back({ frontIndexA + 1, frontIndexB + 1, backIndexA + 1 });
+			frontMesh.triangles.push_back({ frontIndexB + 1, backIndexB + 1, backIndexA + 1 });
+		}
+	}
+	
 }
 
 
@@ -845,7 +896,7 @@ void draw(
 
 
 
-		Mesh front_mesh = get_mesh(cdt);
+		Mesh front_mesh = get_front_mesh(cdt);
 		inflation_side(front_mesh, transformedVerts[1]);
 		inflation_top(front_mesh, transformedVerts[2]);
 		front_mesh.normals = calculateVertexNormals(front_mesh);
@@ -853,16 +904,15 @@ void draw(
 		//saveMeshToOBJ(mesh, "C:/Users/U/Documents/ImaginationModeling/589-689-3D-skeleton/models/output3.obj");
 
 
-		Mesh back_mesh = get_mesh(cdt);
+		Mesh back_mesh = get_back_mesh(cdt);
 		back_inflation_side(back_mesh, transformedVerts[1]);
 		back_inflation_top(back_mesh, transformedVerts[2]);
 		back_mesh.normals = calculateVertexNormals(back_mesh);
-		for (auto& normal : back_mesh.normals) {
-			normal = -normal;
-		}
-
 		saveMeshToOBJ(back_mesh, "C:/Users/dhktj/OneDrive/Desktop/back.obj");
-		//saveMeshToOBJ(mesh, "C:/Users/U/Documents/ImaginationModeling/589-689-3D-skeleton/models/output3.obj");
+
+		connectPlanarMeshes(front_mesh, back_mesh, controlPointVerts[0]);
+		front_mesh.normals = calculateVertexNormals(front_mesh);
+		saveMeshToOBJ(front_mesh, "C:/Users/dhktj/OneDrive/Desktop/output.obj");
 
 		cdt.triangles;
 		cdt.vertices;
