@@ -354,22 +354,30 @@ bool operator==(const glm::vec3& a, const glm::vec3& b) {
 	return a.x == b.x && a.y == b.y && a.z == b.z;
 		
 }
+
 // get control points of a line user provided
+float minDist = 0.1;
 std::vector<glm::vec3> get_control_points(std::vector<glm::vec3>& line, int smoothness) {
 	std::vector<glm::vec3> result;
 	int step_size = line.size() / smoothness;
 	int index = 0;
 
-	while (index < line.size()) {
-		result.push_back(line[index]);
-		index += step_size;
+	if (!line.empty()) {
+		result.push_back(line[0]); 
 	}
 
-	auto it = std::unique(result.begin(), result.end());
-	result.erase(it, result.end());
+	for (int index = step_size; index < line.size(); index += step_size) {
+		const glm::vec3& lastPoint = result.back();
+		const glm::vec3& newPoint = line[index];
+
+		if (glm::distance(lastPoint, newPoint) >= minDist) {
+			result.push_back(newPoint);
+		}
+	}
 
 	return result;
 }
+
 
 // flatten all line vectors to one vector
 std::vector<glm::vec3> flattenLineVerts(std::vector<std::vector<glm::vec3>> &lineVerts) {
