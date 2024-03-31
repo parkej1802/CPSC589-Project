@@ -23,7 +23,7 @@
 #include "glm/gtc/type_ptr.hpp"
 #include "tool.h"
 #include "CDTUtils.h"
-
+#include <random>
 
 CPU_Geometry grid;
 glm::vec3 red = glm::vec3(1, 0, 0);
@@ -432,7 +432,6 @@ void transform(
 	}
 }
 
-
 // show the user cross sections in 3D
 void combine(
 	std::shared_ptr<MyCallbacks>& cb,
@@ -785,6 +784,89 @@ bool isPointInsidePolygon(const glm::vec3& point, const std::vector<glm::vec3>& 
 	return (intersections % 2) != 0;
 }
 
+/*
+void randomDart(CDT::Triangulation<double>& cdt, const std::vector<glm::vec3>& lineVert, float minDist, int newPointsCount) {
+	std::mt19937 rng(std::random_device{}());
+	std::uniform_real_distribution<float> distX, distY;
+
+	glm::vec3 minPos = lineVert[0];
+	glm::vec3 maxPos = lineVert[0];
+	for (const auto& point : lineVert) {
+		minPos.x = std::min(minPos.x, point.x);
+		minPos.y = std::min(minPos.y, point.y);
+		maxPos.x = std::max(maxPos.x, point.x);
+		maxPos.y = std::max(maxPos.y, point.y);
+	}
+
+	distX = std::uniform_real_distribution<float>(minPos.x, maxPos.x);
+	distY = std::uniform_real_distribution<float>(minPos.y, maxPos.y);
+
+	for (int i = 0; i < newPointsCount; ++i) {
+		double x = distX(rng);
+		double y = distY(rng);
+
+		glm::vec3 newPos(x, y, 0.0f);
+		if (isPointInsidePolygon(newPos, lineVert)) {
+			cdt.insertVertices({ CDT::V2d<double>::make(x, y) });
+		}
+	}
+}
+*/
+
+void randomDart(CDT::Triangulation<double>& cdt, const std::vector<glm::vec3>& lineVert, float minDist, int newPointsCount) {
+	std::mt19937 rng(std::random_device{}());
+	std::uniform_real_distribution<float> distX, distY;
+
+	glm::vec3 minPos = lineVert[0];
+	glm::vec3 maxPos = lineVert[0];
+	for (const auto& point : lineVert) {
+		minPos.x = std::min(minPos.x, point.x);
+		minPos.y = std::min(minPos.y, point.y);
+		maxPos.x = std::max(maxPos.x, point.x);
+		maxPos.y = std::max(maxPos.y, point.y);
+	}
+
+	distX = std::uniform_real_distribution<float>(minPos.x, maxPos.x);
+	distY = std::uniform_real_distribution<float>(minPos.y, maxPos.y);
+
+	std::vector<glm::vec3> placedPoints;
+
+	for (int i = 0; i < newPointsCount; ++i) {
+		bool pointAccepted = false;
+		glm::vec3 newPos;
+		int maxAttempts = 100; 
+		int attempts = 0;
+
+		while (!pointAccepted && attempts < maxAttempts) {
+			double x = distX(rng);
+			double y = distY(rng);
+
+			newPos = glm::vec3(x, y, 0.0f);
+			pointAccepted = true;
+
+			if (isPointInsidePolygon(newPos, lineVert)) {
+				for (const auto& placedPoint : placedPoints) {
+					if (glm::distance(newPos, placedPoint) < minDist) {
+						pointAccepted = false;
+						break;
+					}
+				}
+			}
+			else {
+				pointAccepted = false;
+			}
+
+			attempts++;
+		}
+
+		if (pointAccepted) {
+			placedPoints.push_back(newPos);
+			cdt.insertVertices({ CDT::V2d<double>::make(newPos.x, newPos.y) });
+		}
+	}
+}
+
+
 void insert_Vertices(
 	CDT::Triangulation<double>& cdt,
 	const std::vector<glm::vec3>& line) {
@@ -855,7 +937,8 @@ void draw(
 			[](const glm::vec3& p) { return p.y; }
 		);
 
-		insert_Vertices(cdt, lineVerts[0]);
+		//insert_Vertices(cdt, lineVerts[0]);
+		randomDart(cdt, lineVerts[0], 0.2, 50);
 		
 		struct CustomEdge
 		{
@@ -900,19 +983,21 @@ void draw(
 		inflation_side(front_mesh, transformedVerts[1]);
 		inflation_top(front_mesh, transformedVerts[2]);
 		front_mesh.normals = calculateVertexNormals(front_mesh);
-		saveMeshToOBJ(front_mesh, "C:/Users/dhktj/OneDrive/Desktop/front.obj");
-		//saveMeshToOBJ(mesh, "C:/Users/U/Documents/ImaginationModeling/589-689-3D-skeleton/models/output3.obj");
+		//saveMeshToOBJ(front_mesh, "C:/Users/dhktj/OneDrive/Desktop/front.obj");
+		saveMeshToOBJ(front_mesh, "C:/Users/U/Documents/ImaginationModeling/589-689-3D-skeleton/models/front.obj");
 
 
 		Mesh back_mesh = get_back_mesh(cdt);
 		back_inflation_side(back_mesh, transformedVerts[1]);
 		back_inflation_top(back_mesh, transformedVerts[2]);
 		back_mesh.normals = calculateVertexNormals(back_mesh);
-		saveMeshToOBJ(back_mesh, "C:/Users/dhktj/OneDrive/Desktop/back.obj");
+		//saveMeshToOBJ(back_mesh, "C:/Users/dhktj/OneDrive/Desktop/back.obj");
+		saveMeshToOBJ(back_mesh, "C:/Users/U/Documents/ImaginationModeling/589-689-3D-skeleton/models/back.obj");
 
 		connectPlanarMeshes(front_mesh, back_mesh, controlPointVerts[0]);
 		front_mesh.normals = calculateVertexNormals(front_mesh);
-		saveMeshToOBJ(front_mesh, "C:/Users/dhktj/OneDrive/Desktop/output.obj");
+		//saveMeshToOBJ(front_mesh, "C:/Users/dhktj/OneDrive/Desktop/output.obj");
+		saveMeshToOBJ(front_mesh, "C:/Users/U/Documents/ImaginationModeling/589-689-3D-skeleton/models/merged.obj");
 
 		cdt.triangles;
 		cdt.vertices;
