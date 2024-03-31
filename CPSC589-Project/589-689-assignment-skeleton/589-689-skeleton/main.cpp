@@ -795,34 +795,6 @@ bool isPointInsidePolygon(const glm::vec3& point, const std::vector<glm::vec3>& 
 	return (intersections % 2) != 0;
 }
 
-/*
-void randomDart(CDT::Triangulation<double>& cdt, const std::vector<glm::vec3>& lineVert, float minDist, int newPointsCount) {
-	std::mt19937 rng(std::random_device{}());
-	std::uniform_real_distribution<float> distX, distY;
-
-	glm::vec3 minPos = lineVert[0];
-	glm::vec3 maxPos = lineVert[0];
-	for (const auto& point : lineVert) {
-		minPos.x = std::min(minPos.x, point.x);
-		minPos.y = std::min(minPos.y, point.y);
-		maxPos.x = std::max(maxPos.x, point.x);
-		maxPos.y = std::max(maxPos.y, point.y);
-	}
-
-	distX = std::uniform_real_distribution<float>(minPos.x, maxPos.x);
-	distY = std::uniform_real_distribution<float>(minPos.y, maxPos.y);
-
-	for (int i = 0; i < newPointsCount; ++i) {
-		double x = distX(rng);
-		double y = distY(rng);
-
-		glm::vec3 newPos(x, y, 0.0f);
-		if (isPointInsidePolygon(newPos, lineVert)) {
-			cdt.insertVertices({ CDT::V2d<double>::make(x, y) });
-		}
-	}
-}
-*/
 
 void randomDart(CDT::Triangulation<double>& cdt, const std::vector<glm::vec3>& lineVert, float minDist, int newPointsCount) {
 	std::mt19937 rng(std::random_device{}());
@@ -840,12 +812,12 @@ void randomDart(CDT::Triangulation<double>& cdt, const std::vector<glm::vec3>& l
 	distX = std::uniform_real_distribution<float>(minPos.x, maxPos.x);
 	distY = std::uniform_real_distribution<float>(minPos.y, maxPos.y);
 
-	std::vector<glm::vec3> placedPoints;
+	std::vector<glm::vec3> placedPoints(lineVert.begin(), lineVert.end());
 
 	for (int i = 0; i < newPointsCount; ++i) {
 		bool pointAccepted = false;
 		glm::vec3 newPos;
-		int maxAttempts = 100; 
+		int maxAttempts = 100;
 		int attempts = 0;
 
 		while (!pointAccepted && attempts < maxAttempts) {
@@ -878,6 +850,7 @@ void randomDart(CDT::Triangulation<double>& cdt, const std::vector<glm::vec3>& l
 }
 
 
+
 void insert_Vertices(
 	CDT::Triangulation<double>& cdt,
 	const std::vector<glm::vec3>& line) {
@@ -897,6 +870,7 @@ void insert_Vertices(
 		}
 	}
 }
+
 
 
 void draw(
@@ -949,7 +923,7 @@ void draw(
 		);
 
 		//insert_Vertices(cdt, lineVerts[0]);
-		randomDart(cdt, lineVerts[0], 0.2, 50);
+		randomDart(cdt, lineVerts[0], 0.15, 50);
 		
 		struct CustomEdge
 		{
@@ -975,18 +949,6 @@ void draw(
 
 		cdt.eraseOuterTrianglesAndHoles();
 		//cdt.eraseSuperTriangle();
-
-		for (auto vertex : cdt.vertices) {
-			std::cout << vertex.x << ", " << vertex.y << std::endl;
-		}
-
-		for (auto triangle : cdt.triangles) {
-			std::cout << triangle.vertices[0] << ", " << triangle.vertices[1] << ", " << triangle.vertices[2] << std::endl;
-		}
-
-		for (auto edge : cdt.fixedEdges) {
-			std::cout << edge.v1() << ", " << edge.v2() << std::endl;
-		}
 
 
 
