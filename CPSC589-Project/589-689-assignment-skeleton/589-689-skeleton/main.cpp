@@ -871,8 +871,8 @@ void loopSubdivision(Mesh& mesh) {
 
 			if (edgeMidpointIndices.find(edge) == edgeMidpointIndices.end()) {
 				glm::vec3 midpoint = (mesh.vertices[v1 - 1] + mesh.vertices[v2 - 1]) * 0.5f;
-				edgeMidpointIndices[edge] = new_vertices.size();
 				new_vertices.push_back(midpoint);
+				edgeMidpointIndices[edge] = new_vertices.size();
 			}
 		}
 	}
@@ -976,7 +976,14 @@ void draw(
 
 		Mesh front_mesh = get_front_mesh(cdt);
 		loopSubdivision(front_mesh);
+		loopSubdivision(front_mesh);
+		loopSubdivision(front_mesh);
+		inflation_side(front_mesh, transformedVerts[1]);
+		inflation_top(front_mesh, transformedVerts[2]);
+		front_mesh.normals = calculateVertexNormals(front_mesh);
+		saveMeshToOBJ(front_mesh, "C:/Users/dhktj/OneDrive/Desktop/front.obj");
 
+		/*
 		inflation_side(front_mesh, transformedVerts[1]);
 		inflation_top(front_mesh, transformedVerts[2]);
 		front_mesh.normals = calculateVertexNormals(front_mesh);
@@ -994,6 +1001,8 @@ void draw(
 		front_mesh.normals = calculateVertexNormals(front_mesh);
 		saveMeshToOBJ(front_mesh, "C:/Users/dhktj/OneDrive/Desktop/output.obj");
 		//saveMeshToOBJ(front_mesh, "C:/Users/U/Documents/ImaginationModeling/589-689-3D-skeleton/models/merged.obj");
+		*/
+
 
 		cdt.triangles;
 		cdt.vertices;
