@@ -5,6 +5,7 @@
 #include <limits>
 #include <functional>
 #include <unordered_map>
+#include <map>
 #include <fstream>
 #include <set>
 // Window.h `#include`s ImGui, GLFW, and glad in correct order.
@@ -775,7 +776,6 @@ void connectPlanarMeshes(Mesh& frontMesh, const Mesh& backMesh, const std::vecto
 	
 }
 
-
 bool isPointInsidePolygon(const glm::vec3& point, const std::vector<glm::vec3>& polygon) {
 	int intersections = 0;
 	for (size_t i = 0; i < polygon.size(); ++i) {
@@ -849,28 +849,46 @@ void randomDart(CDT::Triangulation<double>& cdt, const std::vector<glm::vec3>& l
 	}
 }
 
+void loopSubdivision(Mesh& mesh) {
+	std::vector<glm::vec3> new_vertices = mesh.vertices;
+	std::vector<std::vector<int>> new_triangles;
+	std::map<std::pair<int, int>, int> edgeMidpointIndices;
 
+	// 에지의 중점을 계산하고 새로운 정점으로 추가
+	for (const auto& triangle : mesh.triangles) {
+		for (int i = 0; i < 3; ++i) {
+			int v1 = triangle[i];
+			int v2 = triangle[(i + 1) % 3];
+			std::pair<int, int> edge = std::make_pair(std::min(v1, v2), std::max(v1, v2));
 
-void insert_Vertices(
-	CDT::Triangulation<double>& cdt,
-	const std::vector<glm::vec3>& line) {
-
-	float minX = findFrontMinX(line);
-	float maxX = findFrontMaxX(line);
-	float minY = findFrontMinY(line);
-	float maxY = findFrontMaxY(line);
-	
-	
-	for (float y = minY; y <= maxY; y += 0.1f) {
-		for (float x = minX; x <= maxX; x += 0.1f) {
-			glm::vec3 newPoint(x, y, 0.0f);
-			if (isPointInsidePolygon(newPoint, line)) {
-				cdt.insertVertices({ { x, y} });
+			if (edgeMidpointIndices.find(edge) == edgeMidpointIndices.end()) {
+				glm::vec3 midpoint = (mesh.vertices[v1 - 1] + mesh.vertices[v2 - 1]) * 0.5f;
+				edgeMidpointIndices[edge] = new_vertices.size();
+				new_vertices.push_back(midpoint);
 			}
 		}
 	}
-}
 
+	// 새로운 삼각형을 생성
+	for (const auto& triangle : mesh.triangles) {
+		int midpoints[3];
+		for (int i = 0; i < 3; ++i) {
+			int v1 = triangle[i];
+			int v2 = triangle[(i + 1) % 3];
+			std::pair<int, int> edge = std::make_pair(std::min(v1, v2), std::max(v1, v2));
+			midpoints[i] = edgeMidpointIndices[edge];
+		}
+
+		new_triangles.push_back({ triangle[0], midpoints[0], midpoints[2] });
+		new_triangles.push_back({ triangle[1], midpoints[1], midpoints[0] });
+		new_triangles.push_back({ triangle[2], midpoints[2], midpoints[1] });
+		new_triangles.push_back({ midpoints[0], midpoints[1], midpoints[2] });
+	}
+
+	// 메시 업데이트
+	mesh.vertices = new_vertices;
+	mesh.triangles = new_triangles;
+}
 
 
 void draw(
@@ -910,7 +928,6 @@ void draw(
 
 		
 		// CDT
-		//CDT::Triangulation<double> cdt;
 		auto cdt = CDT::Triangulation<double>(
 			CDT::VertexInsertionOrder::Auto,
 			CDT::IntersectingConstraintEdges::TryResolve,
@@ -948,29 +965,27 @@ void draw(
 		);
 
 		cdt.eraseOuterTrianglesAndHoles();
-		//cdt.eraseSuperTriangle();
-
-
 
 		Mesh front_mesh = get_front_mesh(cdt);
+		loopSubdivision(front_mesh);
+
 		inflation_side(front_mesh, transformedVerts[1]);
 		inflation_top(front_mesh, transformedVerts[2]);
 		front_mesh.normals = calculateVertexNormals(front_mesh);
-		//saveMeshToOBJ(front_mesh, "C:/Users/dhktj/OneDrive/Desktop/front.obj");
-		saveMeshToOBJ(front_mesh, "C:/Users/U/Documents/ImaginationModeling/589-689-3D-skeleton/models/front.obj");
-
+		saveMeshToOBJ(front_mesh, "C:/Users/dhktj/OneDrive/Desktop/front.obj");
+		//saveMeshToOBJ(front_mesh, "C:/Users/U/Documents/ImaginationModeling/589-689-3D-skeleton/models/front.obj");
 
 		Mesh back_mesh = get_back_mesh(cdt);
 		back_inflation_side(back_mesh, transformedVerts[1]);
 		back_inflation_top(back_mesh, transformedVerts[2]);
 		back_mesh.normals = calculateVertexNormals(back_mesh);
-		//saveMeshToOBJ(back_mesh, "C:/Users/dhktj/OneDrive/Desktop/back.obj");
-		saveMeshToOBJ(back_mesh, "C:/Users/U/Documents/ImaginationModeling/589-689-3D-skeleton/models/back.obj");
+		saveMeshToOBJ(back_mesh, "C:/Users/dhktj/OneDrive/Desktop/back.obj");
+		//saveMeshToOBJ(back_mesh, "C:/Users/U/Documents/ImaginationModeling/589-689-3D-skeleton/models/back.obj");
 
 		connectPlanarMeshes(front_mesh, back_mesh, controlPointVerts[0]);
 		front_mesh.normals = calculateVertexNormals(front_mesh);
-		//saveMeshToOBJ(front_mesh, "C:/Users/dhktj/OneDrive/Desktop/output.obj");
-		saveMeshToOBJ(front_mesh, "C:/Users/U/Documents/ImaginationModeling/589-689-3D-skeleton/models/merged.obj");
+		saveMeshToOBJ(front_mesh, "C:/Users/dhktj/OneDrive/Desktop/output.obj");
+		//saveMeshToOBJ(front_mesh, "C:/Users/U/Documents/ImaginationModeling/589-689-3D-skeleton/models/merged.obj");
 
 		cdt.triangles;
 		cdt.vertices;
