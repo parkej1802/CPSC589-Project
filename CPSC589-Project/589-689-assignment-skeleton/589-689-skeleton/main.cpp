@@ -8,6 +8,8 @@
 #include <map>
 #include <fstream>
 #include <set>
+
+
 // Window.h `#include`s ImGui, GLFW, and glad in correct order.
 #include "Window.h"
 
@@ -862,7 +864,7 @@ void loopSubdivision(Mesh& mesh) {
 	std::vector<std::vector<int>> new_triangles;
 	std::map<std::pair<int, int>, int> edgeMidpointIndices;
 
-	// 에지의 중점을 계산하고 새로운 정점으로 추가
+	// create edge-vertices
 	for (const auto& triangle : mesh.triangles) {
 		for (int i = 0; i < 3; ++i) {
 			int v1 = triangle[i];
@@ -877,7 +879,7 @@ void loopSubdivision(Mesh& mesh) {
 		}
 	}
 
-	// 새로운 삼각형을 생성
+	// create new triangles
 	for (const auto& triangle : mesh.triangles) {
 		int midpoints[3];
 		for (int i = 0; i < 3; ++i) {
@@ -893,11 +895,56 @@ void loopSubdivision(Mesh& mesh) {
 		new_triangles.push_back({ midpoints[0], midpoints[1], midpoints[2] });
 	}
 
-	// 메시 업데이트
+	// update the mesh
 	mesh.vertices = new_vertices;
 	mesh.triangles = new_triangles;
 }
 
+
+// std::pair<int, int>에 대한 사용자 정의 해시 함수
+struct pair_hash {
+	template <class T1, class T2>
+	std::size_t operator () (const std::pair<T1, T2>& pair) const {
+		auto hash1 = std::hash<T1>{}(pair.first);
+		auto hash2 = std::hash<T2>{}(pair.second);
+		return hash1 ^ (hash2 << 1); // 오른쪽으로 비트를 1번 시프트하여 더 좋은 해시 분포를 얻음
+	}
+};
+
+std::vector<glm::vec3> findBoundaryVertices(const Mesh& mesh) {
+	std::unordered_set<int> boundaryVerticesSet;
+	// 사용자 정의 해시 함수를 사용하여 unordered_map 선언
+	std::unordered_map<std::pair<int, int>, int, pair_hash> edgeCount;
+
+	for (const auto& triangle : mesh.triangles) {
+		for (int i = 0; i < 3; ++i) {
+			int v1 = std::min(triangle[i], triangle[(i + 1) % 3]);
+			int v2 = std::max(triangle[i], triangle[(i + 1) % 3]);
+			std::pair<int, int> edge(v1, v2);
+
+			if (edgeCount.find(edge) == edgeCount.end()) {
+				edgeCount[edge] = 1;
+			}
+			else {
+				edgeCount[edge]++;
+			}
+		}
+	}
+
+	for (const auto& pair : edgeCount) {
+		if (pair.second == 1) { // 에지가 한 번만 나타나면 경계에 있는 것임
+			boundaryVerticesSet.insert(pair.first.first);
+			boundaryVerticesSet.insert(pair.first.second);
+		}
+	}
+
+	std::vector<int> boundaryVertices(boundaryVerticesSet.begin(), boundaryVerticesSet.end());
+	std::vector<glm::vec3> result;
+	for (int index : boundaryVertices) {
+		result.push_back(mesh.vertices[index]);
+	}
+	return result;
+}
 
 void draw(
 	std::shared_ptr<MyCallbacks>& cb,
@@ -975,33 +1022,27 @@ void draw(
 		cdt.eraseOuterTrianglesAndHoles();
 
 		Mesh front_mesh = get_front_mesh(cdt);
-		loopSubdivision(front_mesh);
-		loopSubdivision(front_mesh);
-		loopSubdivision(front_mesh);
+
+		std::vector<glm::vec3> boundary = findBoundaryVertices(front_mesh);
+
 		inflation_side(front_mesh, transformedVerts[1]);
 		inflation_top(front_mesh, transformedVerts[2]);
 		front_mesh.normals = calculateVertexNormals(front_mesh);
 		saveMeshToOBJ(front_mesh, "C:/Users/dhktj/OneDrive/Desktop/front.obj");
 
-		/*
-		inflation_side(front_mesh, transformedVerts[1]);
-		inflation_top(front_mesh, transformedVerts[2]);
-		front_mesh.normals = calculateVertexNormals(front_mesh);
-		saveMeshToOBJ(front_mesh, "C:/Users/dhktj/OneDrive/Desktop/front.obj");
-		//saveMeshToOBJ(front_mesh, "C:/Users/U/Documents/ImaginationModeling/589-689-3D-skeleton/models/front.obj");
 
 		Mesh back_mesh = get_back_mesh(cdt);
 		back_inflation_side(back_mesh, transformedVerts[1]);
 		back_inflation_top(back_mesh, transformedVerts[2]);
 		back_mesh.normals = calculateVertexNormals(back_mesh);
 		saveMeshToOBJ(back_mesh, "C:/Users/dhktj/OneDrive/Desktop/back.obj");
-		//saveMeshToOBJ(back_mesh, "C:/Users/U/Documents/ImaginationModeling/589-689-3D-skeleton/models/back.obj");
+
 
 		connectPlanarMeshes(front_mesh, back_mesh, controlPointVerts[0]);
+		loopSubdivision(front_mesh);
+		loopSubdivision(front_mesh);
 		front_mesh.normals = calculateVertexNormals(front_mesh);
 		saveMeshToOBJ(front_mesh, "C:/Users/dhktj/OneDrive/Desktop/output.obj");
-		//saveMeshToOBJ(front_mesh, "C:/Users/U/Documents/ImaginationModeling/589-689-3D-skeleton/models/merged.obj");
-		*/
 
 
 		cdt.triangles;
