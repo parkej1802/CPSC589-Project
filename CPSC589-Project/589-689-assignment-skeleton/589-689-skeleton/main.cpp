@@ -911,40 +911,7 @@ struct pair_hash {
 	}
 };
 
-std::vector<glm::vec3> findBoundaryVertices(const Mesh& mesh) {
-	std::unordered_set<int> boundaryVerticesSet;
-	// 사용자 정의 해시 함수를 사용하여 unordered_map 선언
-	std::unordered_map<std::pair<int, int>, int, pair_hash> edgeCount;
 
-	for (const auto& triangle : mesh.triangles) {
-		for (int i = 0; i < 3; ++i) {
-			int v1 = std::min(triangle[i], triangle[(i + 1) % 3]);
-			int v2 = std::max(triangle[i], triangle[(i + 1) % 3]);
-			std::pair<int, int> edge(v1, v2);
-
-			if (edgeCount.find(edge) == edgeCount.end()) {
-				edgeCount[edge] = 1;
-			}
-			else {
-				edgeCount[edge]++;
-			}
-		}
-	}
-
-	for (const auto& pair : edgeCount) {
-		if (pair.second == 1) { // 에지가 한 번만 나타나면 경계에 있는 것임
-			boundaryVerticesSet.insert(pair.first.first);
-			boundaryVerticesSet.insert(pair.first.second);
-		}
-	}
-
-	std::vector<int> boundaryVertices(boundaryVerticesSet.begin(), boundaryVerticesSet.end());
-	std::vector<glm::vec3> result;
-	for (int index : boundaryVertices) {
-		result.push_back(mesh.vertices[index]);
-	}
-	return result;
-}
 
 void draw(
 	std::shared_ptr<MyCallbacks>& cb,
@@ -1021,10 +988,9 @@ void draw(
 
 		cdt.eraseOuterTrianglesAndHoles();
 
+
+		// generating 3D model starts here
 		Mesh front_mesh = get_front_mesh(cdt);
-
-		std::vector<glm::vec3> boundary = findBoundaryVertices(front_mesh);
-
 		inflation_side(front_mesh, transformedVerts[1]);
 		inflation_top(front_mesh, transformedVerts[2]);
 		front_mesh.normals = calculateVertexNormals(front_mesh);
@@ -1043,7 +1009,7 @@ void draw(
 		loopSubdivision(front_mesh);
 		front_mesh.normals = calculateVertexNormals(front_mesh);
 		saveMeshToOBJ(front_mesh, "C:/Users/dhktj/OneDrive/Desktop/output.obj");
-
+		// generating 3D model ends here
 
 		cdt.triangles;
 		cdt.vertices;
