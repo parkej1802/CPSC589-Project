@@ -721,19 +721,25 @@ void back_inflation_top(Mesh& mesh, const std::vector<glm::vec3>& controlPoints)
 	}
 }
 
+bool isCounterClockwise(const std::vector<glm::vec3>& controlPoints) {
+	if (controlPoints.size() < 3) return false;  // 최소 3점이 필요
+
+	float sum = 0;
+	for (size_t i = 0; i < controlPoints.size(); ++i) {
+		const glm::vec3& A = controlPoints[i];
+		const glm::vec3& B = controlPoints[(i + 1) % controlPoints.size()];
+		const glm::vec3& C = controlPoints[(i + 2) % controlPoints.size()];
+
+		float direction = (B.x - A.x) * (C.y - A.y) - (C.x - A.x) * (B.y - A.y);
+		sum += direction;
+	}
+
+	return sum > 0;
+}
+
 void connectPlanarMeshes(Mesh& frontMesh, Mesh& backMesh, const std::vector<glm::vec3>& controlPoints) {
 	int frontVerticesCount = frontMesh.vertices.size();
 
-	
-	/*
-	for (auto& vert : frontMesh.vertices) {
-		vert.z = 0.1;
-	}
-
-	for (auto& vert : backMesh.vertices) {
-		vert.z = -0.1;
-	}
-	*/
 	// backMesh의 정점과 삼각형을 frontMesh에 추가
 	frontMesh.vertices.insert(frontMesh.vertices.end(), backMesh.vertices.begin(), backMesh.vertices.end());
 	frontMesh.normals.insert(frontMesh.normals.end(), backMesh.normals.begin(), backMesh.normals.end());
@@ -789,9 +795,15 @@ void connectPlanarMeshes(Mesh& frontMesh, Mesh& backMesh, const std::vector<glm:
 		}
 
 		// Connect the vertices with triangles
-		if (frontIndexA != -1 && frontIndexB != -1 && backIndexA != -1 && backIndexB != -1) {
-			frontMesh.triangles.push_back({ backIndexA + 1, frontIndexA + 1, frontIndexB + 1 });
+		if (isCounterClockwise(controlPoints)) {
+			frontMesh.triangles.push_back({ frontIndexA + 1, backIndexA + 1, frontIndexB + 1 });
+			frontMesh.triangles.push_back({ frontIndexB + 1, backIndexA + 1, backIndexB + 1 });
+			printf("CCW\n");
+		}
+		else {
+			frontMesh.triangles.push_back({ frontIndexA + 1, frontIndexB + 1, backIndexA + 1 });
 			frontMesh.triangles.push_back({ frontIndexB + 1, backIndexB + 1, backIndexA + 1 });
+			printf("CW\n");
 		}
 	}
 	
