@@ -1288,6 +1288,10 @@ void flipEdge(Edge* e) {
 	HalfEdge* StE = NtS->next;
 	HalfEdge* EtN = StE->next;
 
+	// added
+	HalfEdge* NtE = EtN->pair;
+	HalfEdge* StW = WtS->pair;
+
 	Vertex* N = NtS->vertex;
 	Vertex* S = StN->vertex;
 	Vertex* E = EtN->vertex;
@@ -1295,7 +1299,7 @@ void flipEdge(Edge* e) {
 
 	Face* f0 = StN->face;
 	Face* f1 = NtS->face;
-
+	
 	// Renaming
 	HalfEdge* WtE = StN;
 	HalfEdge* EtW = NtS;
@@ -1317,6 +1321,7 @@ void flipEdge(Edge* e) {
 	WtS->face = f1;
 	StE->face = f1;
 
+	// HE connectivity changes.
 	WtE->next = EtN;
 	EtN->next = NtW;
 	NtW->next = WtE;
@@ -1324,6 +1329,7 @@ void flipEdge(Edge* e) {
 	EtW->next = WtS;
 	WtS->next = StE;
 	StE->next = EtW;
+	
 }
 
 
@@ -1370,12 +1376,12 @@ Mesh HalfEdgeToMesh(HalfEdgeMesh& he) {
 void loopSubdivision(Mesh& mesh) {
 	HalfEdgeMesh heMesh = MeshToHalfEdge(mesh);
 
-
+	// 1. Mark all vertices as belonging to the original mesh
 	for (Vertex& v : heMesh.vertices) {
 		v.isNew = false;
 	}
 	
-	// Compute updated positions for all vertex - vertex positions and *store *
+	// 2. Compute updated positions for all vertex - vertex positions and *store *
 	for (Vertex& vert : heMesh.vertices) {
 		auto neighbours = getNeighbours(&vert);
 
@@ -1391,7 +1397,7 @@ void loopSubdivision(Mesh& mesh) {
 		vert.newPosition = (1.f - n * alpha) * vert.position + alpha * neighbourSum;
 	}
 	
-	// Compute and *store* edge-vertex positions
+	// 3. Compute and *store* edge-vertex positions
 	for (Edge& edge : heMesh.edges) {
 		HalfEdge* h = edge.halfEdge;
 		glm::vec3 v1 = h->vertex->position;
@@ -1402,7 +1408,7 @@ void loopSubdivision(Mesh& mesh) {
 		edge.newPosition = (3.f / 8.f) * (v1 + v2) + (1.f / 8.f) * (v3 + v4);
 	}
 	
-	// Split every edge in the mesh.
+	// 4. Split every edge in the mesh.
 	std::list<Edge> originalEdges = heMesh.edges;
 	for (Edge& e : originalEdges) {
 		glm::vec3 newPositionCopy = e.newPosition;
@@ -1410,8 +1416,8 @@ void loopSubdivision(Mesh& mesh) {
 		Vertex* newVert = splitEdge(&e, heMesh);
 		newVert->newPosition = newPositionCopy;
 	}
-	
-	// Flip any *new* edge that connects an old and new vertex.
+
+	// 5. Flip any *new* edge that connects an old and new vertex.
 	for (Edge& e : heMesh.edges) {
 		if (e.isNew) {
 			bool firstVertNew = e.halfEdge->vertex->isNew;
@@ -1420,7 +1426,7 @@ void loopSubdivision(Mesh& mesh) {
 		}
 	}
 	
-	// Finally, copy the new vertex positions (Vertex::newPosition) into the
+	// 6. Finally, copy the new vertex positions (Vertex::newPosition) into the
     // usual vertex positions (Vertex::position).
 	for (Vertex& v : heMesh.vertices) {
 		v.position = v.newPosition;
