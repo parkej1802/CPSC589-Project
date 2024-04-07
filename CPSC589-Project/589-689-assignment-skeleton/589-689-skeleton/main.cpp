@@ -69,7 +69,7 @@ struct HalfEdgeMesh
 	std::list<HalfEdge> halfEdges;
 	std::list<Vertex> vertices;
 	std::list<Face> faces;
-	//std::list<Edge> edges;
+	std::list<Edge> edges;
 };
 
 struct HalfEdge {
@@ -78,7 +78,7 @@ struct HalfEdge {
 	HalfEdge* next;
 	HalfEdge* pair;
 
-	//Edge* edge;
+	Edge* edge;
 };
 
 struct Vertex {
@@ -1049,7 +1049,7 @@ HalfEdgeMesh MeshToHalfEdge(Mesh& mesh) {
 		v.isNew = false;  
 		heMesh.vertices.push_back(v);
 
-		Vertex* vertexPtr = &(heMesh.vertices.back());
+		Vertex* vertexPtr = &heMesh.vertices.back();
 		vertexPtrs.push_back(vertexPtr);
 	}
 
@@ -1060,6 +1060,8 @@ HalfEdgeMesh MeshToHalfEdge(Mesh& mesh) {
 		Face* newFacePtr = &heMesh.faces.back();
 		facePtrs.push_back(newFacePtr);
 
+		newFacePtr->halfEdge = nullptr;
+
 
 		for (int j = 0; j < 3; j++) {
 			HalfEdge newHE;
@@ -1069,7 +1071,14 @@ HalfEdgeMesh MeshToHalfEdge(Mesh& mesh) {
 
 			int vertexIndex = mesh.triangles[i][j] - 1;
 			int nextVertexIndex = mesh.triangles[i][(j + 1) % 3] - 1;
-			
+
+			newHEPtr->vertex = vertexPtrs[vertexIndex];
+			newHEPtr->face = newFacePtr;
+			newHEPtr->next = nullptr;
+			newHEPtr->edge = nullptr;
+
+			if (vertexPtrs[vertexIndex]->halfEdge == nullptr) vertexPtrs[vertexIndex]->halfEdge = newHEPtr;
+
 			// setting up pairs
 			EdgeKey key = makeEdgeKey(vertexIndex, nextVertexIndex);
 
@@ -1079,18 +1088,24 @@ HalfEdgeMesh MeshToHalfEdge(Mesh& mesh) {
 				HalfEdge* existingHE = it->second;
 				newHEPtr->pair = existingHE;
 				existingHE->pair = newHEPtr;
+
+				// setting edges
+				Edge edge;
+				heMesh.edges.push_back(edge);
+				Edge* edgePtr = &heMesh.edges.back();
+
+				edgePtr->halfEdge = newHEPtr;
+				edgePtr->isNew = false;
+
+				newHEPtr->edge = edgePtr;
 			}
 			else {
 				// Pair not found, add the new half-edge to the map for future pairing
 				edgeMap[key] = newHEPtr;
 			}
 
-			newHEPtr->vertex = vertexPtrs[vertexIndex];
-			newHEPtr->face = newFacePtr;
-			newHEPtr->next = nullptr;
-
 			if (newFacePtr->halfEdge == nullptr) newFacePtr->halfEdge = newHEPtr;
-			if (vertexPtrs[vertexIndex]->halfEdge == nullptr) vertexPtrs[vertexIndex]->halfEdge = newHEPtr;
+			//if (vertexPtrs[vertexIndex]->halfEdge == nullptr) vertexPtrs[vertexIndex]->halfEdge = newHEPtr;
 
 			// update halfedge.next
 			if (j > 0) {
@@ -1134,10 +1149,233 @@ std::vector<Vertex*> getNeighbours(Vertex* vertex) {
 	return neighbours;
 }
 
+Vertex* splitEdge(Edge* e, HalfEdgeMesh& he) {
+	HalfEdge* StN = e->halfEdge;
+	HalfEdge* NtS = StN->pair;
+
+	HalfEdge* NtW = StN->next;
+	HalfEdge* WtS = NtW->next;
+
+	HalfEdge* StE = NtS->next;
+	HalfEdge* EtN = StE->next;
+
+	Vertex* N = NtS->vertex;
+	Vertex* S = StN->vertex;
+	Vertex* E = EtN->vertex;
+	Vertex* W = WtS->vertex;
+
+	Face* L = StN->face;
+	Face* R = NtS->face;
+
+	// Renaming
+	HalfEdge* CtN = StN;
+	HalfEdge* NtC = NtS;
+
+	Face* UL = L;
+	Face* UR = R;
+
+	// New Elements
+	Vertex newVertex;
+	he.vertices.push_back(newVertex);
+	Vertex* C = &he.vertices.back();
+	C->isNew = true;
+
+	Face newFace1;
+	he.faces.push_back(newFace1);
+	Face* BL = &he.faces.back();
+	Face newFace2;
+	he.faces.push_back(newFace2);
+	Face* BR = &he.faces.back();
+
+	HalfEdge newHalfEdge1;
+	he.halfEdges.push_back(newHalfEdge1);
+	HalfEdge* StC = &he.halfEdges.back();
+	HalfEdge newHalfEdge2;
+	he.halfEdges.push_back(newHalfEdge2);
+	HalfEdge* CtS = &he.halfEdges.back();
+	HalfEdge newHalfEdge3;
+	he.halfEdges.push_back(newHalfEdge3);
+	HalfEdge* WtC = &he.halfEdges.back();
+	HalfEdge newHalfEdge4;
+	he.halfEdges.push_back(newHalfEdge4);
+	HalfEdge* CtW = &he.halfEdges.back();
+	HalfEdge newHalfEdge5;
+	he.halfEdges.push_back(newHalfEdge5);
+	HalfEdge* EtC = &he.halfEdges.back();
+	HalfEdge newHalfEdge6;
+	he.halfEdges.push_back(newHalfEdge6);
+	HalfEdge* CtE = &he.halfEdges.back();
+
+	// Also, add three Edges using the above halfedges.
+	Edge newEdge1;
+	he.edges.push_back(newEdge1);
+	Edge* edgeS = &he.edges.back();
+	Edge newEdge2;
+	he.edges.push_back(newEdge2);
+	Edge* edgeW = &he.edges.back();
+	Edge newEdge3;
+	he.edges.push_back(newEdge3);
+	Edge* edgeE = &he.edges.back();
+
+	edgeS->halfEdge = StC;
+	edgeW->halfEdge = WtC;
+	edgeE->halfEdge = EtC;
+
+	edgeS->isNew = true;
+	edgeW->isNew = true;
+	edgeE->isNew = true;
+
+	// Now, the switching
+	CtN->vertex = C;
+	CtE->vertex = C;
+	CtW->vertex = C;
+	CtS->vertex = C;
+
+	WtC->vertex = W;
+	StC->vertex = S;
+	EtC->vertex = E;
+
+	C->halfEdge = CtN;
+	S->halfEdge = StE;
+	//W->halfEdge = WtS;
+	//E->halfEdge = EtN;
+
+	UL->halfEdge = CtN;
+	UR->halfEdge = NtC;
+
+	BL->halfEdge = StC;
+	BR->halfEdge = CtS;
+
+	WtC->face = UL;
+	CtE->face = UR;
+
+	StC->face = CtW->face = WtS->face = BL;
+	CtS->face = StE->face = EtC->face = BR;
+
+	WtC->next = CtN;
+	NtW->next = WtC;
+
+	NtC->next = CtE;
+	CtE->next = EtN;
+
+	// Then all 3 next's for each of the 2 bottom faces...
+	StC->next = CtW;
+	CtW->next = WtS;
+	WtS->next = StC;
+
+	CtS->next = StE;
+	StE->next = EtC;
+	EtC->next = CtS;
+
+	// Then you set .pair for all 6 of the new halfEdges...
+	StC->pair = CtS;
+	CtS->pair = StC;
+	WtC->pair = CtW;
+	CtW->pair = WtC;
+	EtC->pair = CtE;
+	CtE->pair = EtC;
+
+	return C;
+}
+
+void flipEdge(Edge* e) {
+	HalfEdge* StN = e->halfEdge;
+	HalfEdge* NtS = StN->pair;
+
+	HalfEdge* NtW = StN->next;
+	HalfEdge* WtS = NtW->next;
+
+	HalfEdge* StE = NtS->next;
+	HalfEdge* EtN = StE->next;
+
+	Vertex* N = NtS->vertex;
+	Vertex* S = StN->vertex;
+	Vertex* E = EtN->vertex;
+	Vertex* W = WtS->vertex;
+
+	Face* f0 = StN->face;
+	Face* f1 = NtS->face;
+
+	// Renaming
+	HalfEdge* WtE = StN;
+	HalfEdge* EtW = NtS;
+
+	N->halfEdge = NtW;
+	S->halfEdge = StE;
+
+	WtE->vertex = W;
+	EtW->vertex = E;
+
+	f0->halfEdge = WtE;
+	f1->halfEdge = EtW;
+
+	WtE->face = f0;
+	EtN->face = f0;
+	NtW->face = f0;
+
+	EtW->face = f1;
+	WtS->face = f1;
+	StE->face = f1;
+
+	WtE->next = EtN;
+	EtN->next = NtW;
+	NtW->next = WtE;
+
+	EtW->next = WtS;
+	WtS->next = StE;
+	StE->next = EtW;
+}
+
+
+struct Vec3Hash {
+	size_t operator()(const glm::vec3& v) const {
+		// 간단한 해시 함수 예시; 실제 사용 시에는 더 나은 충돌 회피 방법을 고려해야 합니다.
+		return std::hash<float>()(v.x) ^ std::hash<float>()(v.y) ^ std::hash<float>()(v.z);
+	}
+};
+Mesh HalfEdgeToMesh(HalfEdgeMesh& he) {
+	Mesh mesh;
+	std::unordered_map<glm::vec3, int, Vec3Hash> vertexIndex;
+
+	// adding vertices
+	int index = 0;
+	for (auto& vert : he.vertices) {
+		mesh.vertices.push_back(vert.position);
+		vertexIndex[vert.position] = index;
+		index++;
+	}
+
+	// adding triangles
+	for (auto& face : he.faces) {
+		glm::vec3 v1 = face.halfEdge->vertex->position;
+		glm::vec3 v2 = face.halfEdge->next->vertex->position;
+		glm::vec3 v3 = face.halfEdge->next->next->vertex->position;
+
+		auto it = vertexIndex.find(v1);
+		int v1Index = it->second + 1;
+		it = vertexIndex.find(v2);
+		int v2Index = it->second + 1;
+		it = vertexIndex.find(v3);
+		int v3Index = it->second + 1;
+
+		std::vector<int> triangle = { v1Index , v2Index , v3Index };
+		mesh.triangles.push_back(triangle);
+	}
+
+	mesh.normals = calculateVertexNormals(mesh);
+
+	return mesh;
+}
+
 void loopSubdivision(Mesh& mesh) {
 	HalfEdgeMesh heMesh = MeshToHalfEdge(mesh);
 
+
+	for (Vertex& v : heMesh.vertices) {
+		v.isNew = false;
+	}
 	
+	// Compute updated positions for all vertex - vertex positions and *store *
 	for (Vertex& vert : heMesh.vertices) {
 		auto neighbours = getNeighbours(&vert);
 
@@ -1152,12 +1390,45 @@ void loopSubdivision(Mesh& mesh) {
 
 		vert.newPosition = (1.f - n * alpha) * vert.position + alpha * neighbourSum;
 	}
+	
+	// Compute and *store* edge-vertex positions
+	for (Edge& edge : heMesh.edges) {
+		HalfEdge* h = edge.halfEdge;
+		glm::vec3 v1 = h->vertex->position;
+		glm::vec3 v2 = h->pair->vertex->position;
+		glm::vec3 v3 = h->pair->next->pair->vertex->position;
+		glm::vec3 v4 = h->next->pair->vertex->position;
 
-	auto it = heMesh.vertices.begin();
-	for (auto& vert: mesh.vertices) {
-		vert = it->newPosition;
-		it++;
+		edge.newPosition = (3.f / 8.f) * (v1 + v2) + (1.f / 8.f) * (v3 + v4);
 	}
+	
+	// Split every edge in the mesh.
+	std::list<Edge> originalEdges = heMesh.edges;
+	for (Edge& e : originalEdges) {
+		glm::vec3 newPositionCopy = e.newPosition;
+
+		Vertex* newVert = splitEdge(&e, heMesh);
+		newVert->newPosition = newPositionCopy;
+	}
+	
+	// Flip any *new* edge that connects an old and new vertex.
+	for (Edge& e : heMesh.edges) {
+		if (e.isNew) {
+			bool firstVertNew = e.halfEdge->vertex->isNew;
+			bool secondVertNew = e.halfEdge->pair->vertex->isNew;
+			if (firstVertNew != secondVertNew) flipEdge(&e);
+		}
+	}
+	
+	// Finally, copy the new vertex positions (Vertex::newPosition) into the
+    // usual vertex positions (Vertex::position).
+	for (Vertex& v : heMesh.vertices) {
+		v.position = v.newPosition;
+	}
+	
+	mesh = HalfEdgeToMesh(heMesh);
+	
+	
 }
 
 
@@ -1261,7 +1532,6 @@ void draw(
 
 		// 여기 여기 여길 좀 보소
 		loopSubdivision(front_mesh);
-		front_mesh.normals = calculateVertexNormals(front_mesh);
 		saveMeshToOBJ(front_mesh, "C:/Users/dhktj/OneDrive/Desktop/after.obj");
 
 
