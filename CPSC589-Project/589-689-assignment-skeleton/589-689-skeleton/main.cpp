@@ -8,6 +8,7 @@
 #include <map>
 #include <fstream>
 #include <set>
+#include <random>
 
 
 // Window.h `#include`s ImGui, GLFW, and glad in correct order.
@@ -26,7 +27,9 @@
 #include "glm/gtc/type_ptr.hpp"
 #include "tool.h"
 #include "CDTUtils.h"
-#include <random>
+
+
+float PI = 3.14159265359;
 
 CPU_Geometry grid;
 glm::vec3 red = glm::vec3(1, 0, 0);
@@ -34,77 +37,9 @@ glm::vec3 green = glm::vec3(0, 1, 0);
 glm::vec3 blue = glm::vec3(0, 0, 1);
 glm::vec3 white = glm::vec3(1, 1, 1);
 
-int k = 4;
-int m;
-float ui = 0.01f;
-
-int delta(float u, const std::vector<float>& knots, int m, int k) {
-	for (int i = 0; i < m + k - 1; i++) {
-		if (u >= knots[i] && u < knots[i + 1]) {
-			return i;
-		}
-	}
-	return -1;
-}
-
-std::vector<float> knotSequence(int m, int k) {
-	int n = k + m;
-	std::vector<float> knotSequence(n + 1);
-
-	for (int i = 0; i < k - 1; i++) {
-		knotSequence[i] = 0.0f;
-	}
-
-	for (int i = 1; i < m - 1; i++) {
-		knotSequence[k - 1 + i] = (float)i / (m - 1);
-	}
-
-	for (int i = n - k + 1; i <= n; i++) {
-		knotSequence[i] = 1.0f;
-	}
-
-	return knotSequence;
-}
-
-
-void Bspline(std::vector<glm::vec3>& E, std::vector<glm::vec3>& result, int k, float ui) {
-	int m = E.size() - 1;
-	result.clear();
-	if (m < 1) return;
-	if (k > m + 1) return;
-
-
-	std::vector<float> ks = knotSequence(m, k);
-	std::vector<glm::vec3> c(k);
-
-	for (float u = ks[k - 1]; u <= ks[m + 1]; u += ui) {
-
-		int d = delta(u, ks, m, k);
-		if (d >= E.size()) {
-			return;
-		}
-
-		for (int i = 0; i <= k - 1; i++) {
-			c[i] = E[d - i];
-		}
-
-		for (int r = k; r >= 2; r--) {
-			int i = d;
-			for (int s = 0; s <= r - 2; s++) {
-				float omega = (u - ks[i]) / (ks[i + r - 1] - ks[i]);
-				c[s] = omega * c[s] + (1 - omega) * c[s + 1];
-				i--;
-			}
-		}
-		result.push_back(c[0]);
-	}
-
-	if (!result.empty()) {
-		result.push_back(E.back());
-	}
-
-	return;
-}
+//***************************************************************************|
+//							STRUCTS
+//***************************************************************************|
 
 struct CustomPoint2D
 {
@@ -116,11 +51,59 @@ struct CustomEdge
 	std::pair<std::size_t, std::size_t> vertices;
 };
 
+struct Mesh;
+struct HalfEdge;
+struct Vertex;
+struct Face;
+struct Edge;
+
 struct Mesh
 {
 	std::vector<glm::vec3> vertices;
 	std::vector<glm::vec3> normals;
 	std::vector<std::vector<int>> triangles;
+};
+
+struct HalfEdgeMesh
+{
+	std::list<HalfEdge> halfEdges;
+	std::list<Vertex> vertices;
+	std::list<Face> faces;
+	//std::list<Edge> edges;
+};
+
+struct HalfEdge {
+	Vertex* vertex;
+	Face* face;
+	HalfEdge* next;
+	HalfEdge* pair;
+
+	//Edge* edge;
+};
+
+struct Vertex {
+	HalfEdge* halfEdge;
+	glm::vec3 position;
+	glm::vec3 normal;
+
+	bool isNew;
+	glm::vec3 newPosition;
+};
+
+struct Face {
+	HalfEdge* halfEdge;
+};
+
+struct Edge {
+	HalfEdge* halfEdge;
+	bool isNew;
+	glm::vec3 newPosition;
+};
+
+struct EdgeKeyHash {
+	std::size_t operator()(const std::pair<int, int>& key) const {
+		return std::hash<int>()(key.first) ^ (std::hash<int>()(key.second) << 1);
+	}
 };
 
 // CALLBACKS
@@ -798,12 +781,10 @@ void connectPlanarMeshes(Mesh& frontMesh, Mesh& backMesh, const std::vector<glm:
 		if (isCounterClockwise(controlPoints)) {
 			frontMesh.triangles.push_back({ frontIndexA + 1, backIndexA + 1, frontIndexB + 1 });
 			frontMesh.triangles.push_back({ frontIndexB + 1, backIndexA + 1, backIndexB + 1 });
-			printf("CCW\n");
 		}
 		else {
 			frontMesh.triangles.push_back({ frontIndexA + 1, frontIndexB + 1, backIndexA + 1 });
 			frontMesh.triangles.push_back({ frontIndexB + 1, backIndexB + 1, backIndexA + 1 });
-			printf("CW\n");
 		}
 	}
 	
@@ -882,48 +863,6 @@ void randomDart(CDT::Triangulation<double>& cdt, const std::vector<glm::vec3>& l
 	}
 }
 
-void loopSubdivision(Mesh& mesh) {
-	std::vector<glm::vec3> new_vertices = mesh.vertices;
-	std::vector<std::vector<int>> new_triangles;
-	std::map<std::pair<int, int>, int> edgeMidpointIndices;
-
-	// create edge-vertices
-	for (const auto& triangle : mesh.triangles) {
-		for (int i = 0; i < 3; ++i) {
-			int v1 = triangle[i];
-			int v2 = triangle[(i + 1) % 3];
-			std::pair<int, int> edge = std::make_pair(std::min(v1, v2), std::max(v1, v2));
-
-			if (edgeMidpointIndices.find(edge) == edgeMidpointIndices.end()) {
-				glm::vec3 midpoint = (mesh.vertices[v1 - 1] + mesh.vertices[v2 - 1]) * 0.5f;
-				new_vertices.push_back(midpoint);
-				edgeMidpointIndices[edge] = new_vertices.size();
-			}
-		}
-	}
-
-	// create new triangles
-	for (const auto& triangle : mesh.triangles) {
-		int midpoints[3];
-		for (int i = 0; i < 3; ++i) {
-			int v1 = triangle[i];
-			int v2 = triangle[(i + 1) % 3];
-			std::pair<int, int> edge = std::make_pair(std::min(v1, v2), std::max(v1, v2));
-			midpoints[i] = edgeMidpointIndices[edge];
-		}
-
-		new_triangles.push_back({ triangle[0], midpoints[0], midpoints[2] });
-		new_triangles.push_back({ triangle[1], midpoints[1], midpoints[0] });
-		new_triangles.push_back({ triangle[2], midpoints[2], midpoints[1] });
-		new_triangles.push_back({ midpoints[0], midpoints[1], midpoints[2] });
-	}
-
-	// update the mesh
-	mesh.vertices = new_vertices;
-	mesh.triangles = new_triangles;
-}
-
-
 void inflation_side(Mesh& mesh, const std::vector<glm::vec3>& controlPoints) {
 	const float threshold = 0.01f; // 정점 중복성 검사를 위한 임계값
 
@@ -982,7 +921,7 @@ void inflation_side(Mesh& mesh, const std::vector<glm::vec3>& controlPoints) {
 				proposedChange.z = low.z + ratio * (high.z - low.z);
 			}
 		}
-
+		
 		// 기존 메쉬 정점들 중에서 proposedChange와 "충분히 가까운" 정점이 있는지 검사
 		bool isCloseVertexExist = std::any_of(mesh.vertices.begin(), mesh.vertices.end(),
 			[&](const glm::vec3& existingVert) {
@@ -993,10 +932,13 @@ void inflation_side(Mesh& mesh, const std::vector<glm::vec3>& controlPoints) {
 		if (!isCloseVertexExist) {
 			vert.z = proposedChange.z;
 		}
+		
 	}
 }
 
 void inflation_top(Mesh& mesh, const std::vector<glm::vec3>& controlPoints) {
+	const float threshold = 0.01f;
+
 	std::vector<glm::vec3> positiveVertices;
 	std::vector<glm::vec3> negativeVertices;
 
@@ -1014,18 +956,20 @@ void inflation_top(Mesh& mesh, const std::vector<glm::vec3>& controlPoints) {
 		[](const glm::vec3& a, const glm::vec3& b) { return a.x < b.x; });
 
 	for (auto& vert : mesh.vertices) {
+		glm::vec3 proposedChange = vert;
+
 		if (vert.z > 0) {
 			auto it = std::lower_bound(positiveVertices.begin(), positiveVertices.end(), vert,
 				[](const glm::vec3& cp, const glm::vec3& vert) { return cp.x < vert.x; });
 
 			if (it == positiveVertices.begin()) {
-				if (vert.z > it->z) {
-					vert.z = it->z;
+				if (proposedChange.z > it->z) {
+					proposedChange.z = it->z;
 				}
 			}
 			else if (it == positiveVertices.end()) {
-				if (vert.z > (it - 1)->z) {
-					vert.z = (it - 1)->z;
+				if (proposedChange.z > (it - 1)->z) {
+					proposedChange.z = (it - 1)->z;
 				}
 			}
 			else {
@@ -1033,8 +977,8 @@ void inflation_top(Mesh& mesh, const std::vector<glm::vec3>& controlPoints) {
 				const glm::vec3& high = *it;
 				float ratio = (vert.x - low.x) / (high.x - low.x);
 				float newZ = low.z + ratio * (high.z - low.z);
-				if (vert.z > newZ) {
-					vert.z = newZ;
+				if (proposedChange.z > newZ) {
+					proposedChange.z = newZ;
 				}
 			}
 		}
@@ -1043,13 +987,13 @@ void inflation_top(Mesh& mesh, const std::vector<glm::vec3>& controlPoints) {
 				[](const glm::vec3& cp, const glm::vec3& vert) { return cp.x < vert.x; });
 
 			if (it == negativeVertices.begin()) {
-				if (vert.z < it->z) {
-					vert.z = it->z;
+				if (proposedChange.z < it->z) {
+					proposedChange.z = it->z;
 				}
 			}
 			else if (it == negativeVertices.end()) {
-				if (vert.z < (it - 1)->z) {
-					vert.z = (it - 1)->z;
+				if (proposedChange.z < (it - 1)->z) {
+					proposedChange.z = (it - 1)->z;
 				}
 			}
 			else {
@@ -1057,11 +1001,162 @@ void inflation_top(Mesh& mesh, const std::vector<glm::vec3>& controlPoints) {
 				const glm::vec3& high = *it;
 				float ratio = (vert.x - low.x) / (high.x - low.x);
 				float newZ = low.z + ratio * (high.z - low.z);
-				if (vert.z < newZ) {
-					vert.z = newZ;
+				if (proposedChange.z < newZ) {
+					proposedChange.z = newZ;
 				}
 			}
 		}
+
+		bool isCloseVertexExist = std::any_of(mesh.vertices.begin(), mesh.vertices.end(),
+			[&](const glm::vec3& existingVert) {
+				return glm::distance(existingVert, proposedChange) < threshold;
+			});
+
+		// "충분히 가까운" 정점이 없는 경우에만 변경 적용
+		if (!isCloseVertexExist) {
+			vert.z = proposedChange.z;
+		}
+		else {
+			if (proposedChange.z > 0) {
+				vert.z = proposedChange.z + 0.015;
+			}
+			else {
+				vert.z = proposedChange.z - 0.015;
+			}
+		}
+	}
+}
+
+// EdgeKey 타입 정의 및 makeEdgeKey 함수
+typedef std::pair<int, int> EdgeKey;
+EdgeKey makeEdgeKey(int v1, int v2) {
+	return { std::min(v1, v2), std::max(v1, v2) };
+}
+
+HalfEdgeMesh MeshToHalfEdge(Mesh& mesh) {
+	HalfEdgeMesh heMesh;
+	std::unordered_map<EdgeKey, HalfEdge*, EdgeKeyHash> edgeMap;
+	std::vector<Vertex*> vertexPtrs;
+	std::vector<Face*> facePtrs;
+	std::vector<HalfEdge*> halfEdgePtrs;
+
+	// setting the vertices
+	for (int i = 0; i < mesh.vertices.size(); i++) {
+		Vertex v;
+		v.halfEdge = nullptr;
+		v.position = mesh.vertices[i];
+		v.normal = mesh.normals[i];
+		v.isNew = false;  
+		heMesh.vertices.push_back(v);
+
+		Vertex* vertexPtr = &(heMesh.vertices.back());
+		vertexPtrs.push_back(vertexPtr);
+	}
+
+	// setting the faces and halfedges
+	for (int i = 0; i < mesh.triangles.size();i++) {
+		Face newFace;
+		heMesh.faces.push_back(newFace);
+		Face* newFacePtr = &heMesh.faces.back();
+		facePtrs.push_back(newFacePtr);
+
+
+		for (int j = 0; j < 3; j++) {
+			HalfEdge newHE;
+			heMesh.halfEdges.push_back(newHE);
+			HalfEdge* newHEPtr = &heMesh.halfEdges.back();
+			halfEdgePtrs.push_back(newHEPtr);
+
+			int vertexIndex = mesh.triangles[i][j] - 1;
+			int nextVertexIndex = mesh.triangles[i][(j + 1) % 3] - 1;
+			
+			// setting up pairs
+			EdgeKey key = makeEdgeKey(vertexIndex, nextVertexIndex);
+
+			// Before adding the new half-edge to heMesh, check if its pair already exists
+			auto it = edgeMap.find(key);
+			if (it != edgeMap.end()) {
+				HalfEdge* existingHE = it->second;
+				newHEPtr->pair = existingHE;
+				existingHE->pair = newHEPtr;
+			}
+			else {
+				// Pair not found, add the new half-edge to the map for future pairing
+				edgeMap[key] = newHEPtr;
+			}
+
+			newHEPtr->vertex = vertexPtrs[vertexIndex];
+			newHEPtr->face = newFacePtr;
+			newHEPtr->next = nullptr;
+
+			if (newFacePtr->halfEdge == nullptr) newFacePtr->halfEdge = newHEPtr;
+			if (vertexPtrs[vertexIndex]->halfEdge == nullptr) vertexPtrs[vertexIndex]->halfEdge = newHEPtr;
+
+			// update halfedge.next
+			if (j > 0) {
+				// set current half edge to the next half edge of the previous one
+				halfEdgePtrs[halfEdgePtrs.size() - 2]->next = newHEPtr;
+			}
+		}
+		halfEdgePtrs[halfEdgePtrs.size() - 1]->next = halfEdgePtrs[halfEdgePtrs.size() - 3];
+	}
+
+
+	return heMesh;
+}
+
+std::vector<Vertex*> getNeighbours(Vertex* vertex) {
+	std::vector<Vertex*> neighbours;
+
+	HalfEdge* startEdge = vertex->halfEdge;
+	HalfEdge* currentEdge = startEdge;
+
+	do {
+		// 현재 HalfEdge의 'next'가 가리키는 정점을 이웃으로 추가
+		if (currentEdge->next && currentEdge->next->vertex) {
+			neighbours.push_back(currentEdge->next->vertex);
+		}
+
+		// 짝(HalfEdge pair)을 통해 반대 방향으로 진행
+		currentEdge = currentEdge->pair;
+
+		// 다음 반복을 위해, 짝의 'next'를 현재 엣지로 설정
+		if (currentEdge) {
+			currentEdge = currentEdge->next;
+		}
+
+	} while (currentEdge && currentEdge != startEdge); // 시작점으로 돌아오거나, 짝이 없는 경우 종료
+
+	// 중복 제거를 위해 unordered_set을 사용할 수도 있습니다.
+	std::unordered_set<Vertex*> uniqueNeighbours(neighbours.begin(), neighbours.end());
+	neighbours.assign(uniqueNeighbours.begin(), uniqueNeighbours.end());
+
+	return neighbours;
+}
+
+void loopSubdivision(Mesh& mesh) {
+	HalfEdgeMesh heMesh = MeshToHalfEdge(mesh);
+
+	
+	for (Vertex& vert : heMesh.vertices) {
+		auto neighbours = getNeighbours(&vert);
+
+		glm::vec3 neighbourSum(0.f);
+		for (Vertex* neighbour : neighbours) {
+			neighbourSum += neighbour->position;
+		}
+
+		float n = (float)(neighbours.size());
+		float termToSquare = (3.f / 8.f) + 0.25f * cos((2.f * PI) / n);
+		float alpha = (1.f / n) * ((5.f / 8.f) - termToSquare * termToSquare);
+
+		vert.newPosition = (1.f - n * alpha) * vert.position + alpha * neighbourSum;
+	}
+
+	auto it = heMesh.vertices.begin();
+	for (auto& vert: mesh.vertices) {
+		vert = it->newPosition;
+		it++;
 	}
 }
 
@@ -1096,7 +1191,6 @@ void draw(
 		// get control points
 		for (int i = 0; i < 3; i++) {
 			controlPointVerts[i] = get_control_points(lineVerts[i], 50);
-			Bspline(controlPointVerts[i], bsplineVerts[i], k, ui);
 		}
 		transform(lineVerts, transformedVerts);
 		cross_section++;
@@ -1156,13 +1250,20 @@ void draw(
 		//saveMeshToOBJ(back_mesh, "C:/Users/dhktj/OneDrive/Desktop/back.obj");
 
 		connectPlanarMeshes(front_mesh, back_mesh, controlPointVerts[0]);
-		loopSubdivision(front_mesh);
-		loopSubdivision(front_mesh);
-		inflation_side(front_mesh, transformedVerts[1]);
-		inflation_top(front_mesh, transformedVerts[2]);
+		//loopSubdivision(front_mesh);
+		//loopSubdivision(front_mesh);
+		//loopSubdivision(front_mesh);
+		//inflation_side(front_mesh, transformedVerts[1]);
+		//inflation_top(front_mesh, transformedVerts[2]);
 		front_mesh.normals = calculateVertexNormals(front_mesh);
-		saveMeshToOBJ(front_mesh, "C:/Users/dhktj/OneDrive/Desktop/output.obj");
+		saveMeshToOBJ(front_mesh, "C:/Users/dhktj/OneDrive/Desktop/before.obj");
 		// generating 3D model ends here
+
+		// 여기 여기 여길 좀 보소
+		loopSubdivision(front_mesh);
+		front_mesh.normals = calculateVertexNormals(front_mesh);
+		saveMeshToOBJ(front_mesh, "C:/Users/dhktj/OneDrive/Desktop/after.obj");
+
 
 		cdt.triangles;
 		cdt.vertices;
@@ -1323,10 +1424,6 @@ int main() {
 		change |= ImGui::ColorEdit3("New pt color", (float*)&color);
 
 		change |= ImGui::Checkbox("Draw lines", &drawLines);
-
-		change |= ImGui::SliderInt("Curve's Order", &k, 1, 10);
-
-		change |= ImGui::SliderFloat("u", &ui, 0.01f, 0.99f);
 
 		change |= ImGui::Checkbox("Draw lines", &drawLines);
 
