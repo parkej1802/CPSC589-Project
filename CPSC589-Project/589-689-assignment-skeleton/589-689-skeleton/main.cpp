@@ -1533,13 +1533,13 @@ void draw(
 		//inflation_side(front_mesh, transformedVerts[1]);
 		//inflation_top(front_mesh, transformedVerts[2]);
 		front_mesh.normals = calculateVertexNormals(front_mesh);
-		saveMeshToOBJ(front_mesh, "C:/Users/dhktj/OneDrive/Desktop/before.obj");
+		//saveMeshToOBJ(front_mesh, "C:/Users/dhktj/OneDrive/Desktop/before.obj");
 		// generating 3D model ends here
 
 		// 여기 여기 여길 좀 보소
 		loopSubdivision(front_mesh);
-		saveMeshToOBJ(front_mesh, "C:/Users/dhktj/OneDrive/Desktop/after.obj");
-
+		//saveMeshToOBJ(front_mesh, "C:/Users/dhktj/OneDrive/Desktop/after.obj");
+		saveMeshToOBJ(front_mesh, "C:/Users/U/Documents/ImaginationModeling/589-689-3D-skeleton/models/merged.obj");
 
 		cdt.triangles;
 		cdt.vertices;
@@ -1568,10 +1568,180 @@ void draw(
 			glDrawArrays(GL_LINE_STRIP, start_index, GLsizei(transformedVerts[i].size()));
 			start_index += transformedVerts[i].size();
 		}
-		
 	}
 
 	return;
+}
+
+void drawCommonElements(
+	GPU_Geometry& gpuGeom,
+	CPU_Geometry& lineCpu,
+	const std::vector<glm::vec3>& gridVerts,
+	const std::vector<glm::vec3>& gridCols
+) {
+
+	gpuGeom.setVerts(gridVerts);
+	gpuGeom.setCols(gridCols);
+	glDrawArrays(GL_LINE_STRIP, 0, GLsizei(2));
+	glDrawArrays(GL_LINE_STRIP, 2, GLsizei(2));
+
+}
+
+
+void phaseFront(std::shared_ptr<MyCallbacks>& cb,
+	std::vector<std::vector<glm::vec3>>& lineVerts, CPU_Geometry& lineCpu,
+	std::vector<std::vector<glm::vec3>>& controlPointVerts, CPU_Geometry& controlPointCpu,
+	std::vector<std::vector<glm::vec3>>& transformedVerts,
+	GPU_Geometry& gpuGeom,
+	int& cross_section) {
+
+	draw_cross_sections(cb, lineVerts, lineCpu, cross_section);
+
+	gpuGeom.setVerts(lineCpu.verts);
+	gpuGeom.setCols(lineCpu.cols);
+	glDrawArrays(GL_LINE_STRIP, 0, GLsizei(lineVerts[0].size()));
+}
+
+void phaseSide(std::shared_ptr<MyCallbacks>& cb,
+	std::vector<std::vector<glm::vec3>>& lineVerts, CPU_Geometry& lineCpu,
+	std::vector<std::vector<glm::vec3>>& controlPointVerts, CPU_Geometry& controlPointCpu,
+	std::vector<std::vector<glm::vec3>>& transformedVerts,
+	GPU_Geometry& gpuGeom,
+	int& cross_section) {
+
+
+	draw_cross_sections(cb, lineVerts, lineCpu, cross_section);
+
+	
+	gpuGeom.setVerts(lineCpu.verts);
+	gpuGeom.setCols(lineCpu.cols);
+
+	glDrawArrays(GL_LINE_STRIP, GLsizei(lineVerts[0].size()), GLsizei(lineVerts[1].size()));
+
+}
+
+void phaseTop(std::shared_ptr<MyCallbacks>& cb,
+	std::vector<std::vector<glm::vec3>>& lineVerts, CPU_Geometry& lineCpu,
+	std::vector<std::vector<glm::vec3>>& controlPointVerts, CPU_Geometry& controlPointCpu,
+	std::vector<std::vector<glm::vec3>>& transformedVerts,
+	GPU_Geometry& gpuGeom,
+	int& cross_section) {
+
+
+
+	draw_cross_sections(cb, lineVerts, lineCpu, cross_section);
+
+	gpuGeom.setVerts(lineCpu.verts);
+	gpuGeom.setCols(lineCpu.cols);
+
+	glDrawArrays(GL_LINE_STRIP, GLsizei(lineVerts[0].size() + lineVerts[1].size()), GLsizei(lineVerts[2].size()));
+
+
+}
+
+void phaseCreateMesh(std::shared_ptr<MyCallbacks>& cb,
+	std::vector<std::vector<glm::vec3>>& lineVerts, CPU_Geometry& lineCpu,
+	std::vector<std::vector<glm::vec3>>& controlPointVerts, CPU_Geometry& controlPointCpu,
+	std::vector<std::vector<glm::vec3>>& transformedVerts,
+	GPU_Geometry& gpuGeom,
+	int& cross_section) {
+
+	for (int i = 0; i < 3; i++) {
+		controlPointVerts[i] = get_control_points(lineVerts[i], 50);
+	}
+	transform(lineVerts, transformedVerts);
+	cross_section++;
+
+
+	// CDT
+	auto cdt = CDT::Triangulation<double>(
+		CDT::VertexInsertionOrder::Auto,
+		CDT::IntersectingConstraintEdges::TryResolve,
+		0.);
+	cdt.insertVertices(
+		controlPointVerts[0].begin(),
+		controlPointVerts[0].end(),
+		[](const glm::vec3& p) { return p.x; },
+		[](const glm::vec3& p) { return p.y; }
+	);
+
+	//insert_Vertices(cdt, lineVerts[0]);
+	randomDart(cdt, lineVerts[0], 0.15, 50);
+
+	struct CustomEdge
+	{
+		std::pair<std::size_t, std::size_t> vertices;
+	};
+
+	std::vector<CustomEdge> edges;
+	for (int i = 0; i < controlPointVerts[0].size() - 1; i++) {
+		CustomEdge edge;
+		edge.vertices = std::make_pair(i, i + 1);
+		edges.push_back(edge);
+	}
+
+	CustomEdge edge;
+	edge.vertices = std::make_pair(controlPointVerts[0].size() - 1, 0);
+	edges.push_back(edge);
+	cdt.insertEdges(
+		edges.begin(),
+		edges.end(),
+		[](const CustomEdge& e) { return e.vertices.first; },
+		[](const CustomEdge& e) { return e.vertices.second; }
+	);
+
+	cdt.eraseOuterTrianglesAndHoles();
+
+
+	// generating 3D model starts here
+	Mesh front_mesh = get_front_mesh(cdt);
+	front_inflation_side(front_mesh, transformedVerts[1]);
+	front_inflation_top(front_mesh, transformedVerts[2]);
+	front_mesh.normals = calculateVertexNormals(front_mesh);
+	//saveMeshToOBJ(front_mesh, "C:/Users/dhktj/OneDrive/Desktop/front.obj");
+
+	Mesh back_mesh = get_back_mesh(cdt);
+	back_inflation_side(back_mesh, transformedVerts[1]);
+	back_inflation_top(back_mesh, transformedVerts[2]);
+	back_mesh.normals = calculateVertexNormals(back_mesh);
+	//saveMeshToOBJ(back_mesh, "C:/Users/dhktj/OneDrive/Desktop/back.obj");
+
+	connectPlanarMeshes(front_mesh, back_mesh, controlPointVerts[0]);
+	//loopSubdivision(front_mesh);
+	//loopSubdivision(front_mesh);
+	//loopSubdivision(front_mesh);
+	//inflation_side(front_mesh, transformedVerts[1]);
+	//inflation_top(front_mesh, transformedVerts[2]);
+	front_mesh.normals = calculateVertexNormals(front_mesh);
+	//saveMeshToOBJ(front_mesh, "C:/Users/dhktj/OneDrive/Desktop/before.obj");
+	// generating 3D model ends here
+
+	// 여기 여기 여길 좀 보소
+	loopSubdivision(front_mesh);
+	//saveMeshToOBJ(front_mesh, "C:/Users/dhktj/OneDrive/Desktop/after.obj");
+	saveMeshToOBJ(front_mesh, "C:/Users/U/Documents/ImaginationModeling/589-689-3D-skeleton/models/merged.obj");
+
+	cdt.triangles;
+	cdt.vertices;
+	cdt.fixedEdges;
+	CDT::extractEdgesFromTriangles(cdt.triangles);
+
+}
+
+void showCombined(std::shared_ptr<MyCallbacks>& cb,
+	std::vector<std::vector<glm::vec3>>& lineVerts, CPU_Geometry& lineCpu,
+	std::vector<std::vector<glm::vec3>>& controlPointVerts, CPU_Geometry& controlPointCpu,
+	std::vector<std::vector<glm::vec3>>& transformedVerts,
+	GPU_Geometry& gpuGeom,
+	int& cross_section) {
+	combine(cb, transformedVerts, lineCpu);
+	gpuGeom.setVerts(lineCpu.verts);
+	gpuGeom.setCols(lineCpu.cols);
+	int start_index = 0;
+	for (int i = 0; i < 3; i++) {
+		glDrawArrays(GL_LINE_STRIP, start_index, GLsizei(transformedVerts[i].size()));
+		start_index += transformedVerts[i].size();
+	}
 }
 
 
@@ -1601,7 +1771,7 @@ int main() {
 
 
 	// GEOMETRY
-	int cross_section = -1;
+	int cross_section = 0;
 	CPU_Geometry lineCpu;
 	CPU_Geometry controlPointCpu;
 	CPU_Geometry bsplineCurveCpu;
@@ -1616,12 +1786,99 @@ int main() {
 
 	GPU_Geometry gpuGeom;
 
+	//================================================================================================================//
+
+	GLfloat vertices[] = {
+
+		 0.7f, -0.75f, 0.0f,  1.0f, 1.0f, 1.0f, 
+		 0.9f, -0.75f, 0.0f,  1.0f, 1.0f, 1.0f, 
+		 0.9f, -0.9f, 0.0f,  1.0f, 1.0f, 1.0f,
+		 0.7f, -0.9f, 0.0f,  1.0f, 1.0f, 1.0f,
+	};
+
+
+	GLuint indices[] = {
+		0, 1, 2,
+		0, 2, 3
+	};
+
+	GLfloat clearVertices[] = {
+
+		 0.7f, 0.75f, 0.0f,  1.0f, 1.0f, 1.0f,
+		 0.9f, 0.75f, 0.0f,  1.0f, 1.0f, 1.0f,
+		 0.9f, 0.9f, 0.0f,  1.0f, 1.0f, 1.0f,
+		 0.7f, 0.9f, 0.0f,  1.0f, 1.0f, 1.0f,
+	};
+
+	GLuint clearIndices[] = {
+		0, 1, 2,
+		0, 2, 3
+	};
+
+	// VAO, VBO, EBO 설정
+	GLuint VAO, VBO, EBO;
+	glGenVertexArrays(1, &VAO);
+	glGenBuffers(1, &VBO);
+	glGenBuffers(1, &EBO);
+
+	glBindVertexArray(VAO);
+
+	glBindBuffer(GL_ARRAY_BUFFER, VBO);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
+
+	// position attribute
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)0);
+	glEnableVertexAttribArray(0);
+
+	// color attribute
+	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(3 * sizeof(float)));
+	glEnableVertexAttribArray(1);
+
+	//=========================================================================================================================//
+
+	GLuint VAO2, VBO2, EBO2;
+	glGenVertexArrays(1, &VAO2);
+	glGenBuffers(1, &VBO2);
+	glGenBuffers(1, &EBO2);
+
+	glBindVertexArray(VAO2);
+
+	glBindBuffer(GL_ARRAY_BUFFER, VBO2);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(clearVertices), clearVertices, GL_STATIC_DRAW);
+
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO2);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(clearIndices), clearIndices, GL_STATIC_DRAW);
+
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)0);
+	glEnableVertexAttribArray(0);
+
+	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(3 * sizeof(float)));
+	glEnableVertexAttribArray(1);
+
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+	glBindVertexArray(0);
+
+	bool button = false;
+
+	//=========================================================================================================================//
+
 	// RENDER LOOP
 	while (!window.shouldClose()) {
 
 		// Tell callbacks object a new frame's begun BEFORE polling events!
 		cb->incrementFrameCount();
 		glfwPollEvents();
+
+		glBindVertexArray(VAO);
+		glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+		glBindVertexArray(0);
+
+		glBindVertexArray(VAO2);
+		glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+		glBindVertexArray(0);
 
 		/*
 
@@ -1640,7 +1897,13 @@ int main() {
 		// when the left button gets pressed increase the cross_section
 		if (cb->leftMouseJustPressed()) {
 			std::cout << "Position: " << glm::vec3(cb->getCursorPosGL(), 0.f) << std::endl;
-			if (cross_section < 5) cross_section++;
+			if (cb->getCursorPosGL().x >= 0.7f && cb->getCursorPosGL().x <= 0.9f && cb->getCursorPosGL().y <= -0.75f && cb->getCursorPosGL().y >= -0.9f) {
+				button = true;
+				if (cross_section < 5) cross_section++;
+
+			}
+
+			
 		}
 
 		if (cb->rightMouseJustPressed()) {
@@ -1725,9 +1988,10 @@ int main() {
 		glPointSize(pointSize);
 
 		glEnable(GL_FRAMEBUFFER_SRGB);
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+		//glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 		// actual drawing happening here
+		/*
 		draw(
 			cb,
 			lineVerts, lineCpu,
@@ -1737,8 +2001,56 @@ int main() {
 			gpuGeom,
 			cross_section);
 
+		*/
+		drawCommonElements(gpuGeom, lineCpu, grid.verts, grid.cols);
+		if (cross_section == 0) {
 
-		glDisable(GL_FRAMEBUFFER_SRGB); // disable sRGB for things like imgui
+			phaseFront(
+				cb,
+				lineVerts, lineCpu,
+				controlPointVerts, controlPointCpu,
+				transformedVerts,
+				gpuGeom,
+				cross_section);
+		}
+		else if (cross_section == 1) {
+			phaseSide(
+				cb,
+				lineVerts, lineCpu,
+				controlPointVerts, controlPointCpu,
+				transformedVerts,
+				gpuGeom,
+				cross_section);
+		}
+		else if (cross_section == 2) {
+			phaseTop(
+				cb,
+				lineVerts, lineCpu,
+				controlPointVerts, controlPointCpu,
+				transformedVerts,
+				gpuGeom,
+				cross_section);
+		}
+		else if (cross_section == 3) { 
+			phaseCreateMesh(
+				cb,
+				lineVerts, lineCpu,
+				controlPointVerts, controlPointCpu,
+				transformedVerts,
+				gpuGeom,
+				cross_section);
+		}
+		else {
+			showCombined(cb,
+				lineVerts, lineCpu,
+				controlPointVerts, controlPointCpu,
+				transformedVerts,
+				gpuGeom,
+				cross_section);
+		}
+
+		
+		//glDisable(GL_FRAMEBUFFER_SRGB); // disable sRGB for things like imgui
 
 		ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
