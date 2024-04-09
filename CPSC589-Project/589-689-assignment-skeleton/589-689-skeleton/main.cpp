@@ -728,6 +728,14 @@ bool isCounterClockwise(const std::vector<glm::vec3>& controlPoints) {
 void connectPlanarMeshes(Mesh& frontMesh, Mesh& backMesh, const std::vector<glm::vec3>& controlPoints) {
 	int frontVerticesCount = frontMesh.vertices.size();
 
+	for (auto& vert : frontMesh.vertices) {
+		vert.z = 0.01f;
+	}
+
+	for (auto& vert : backMesh.vertices) {
+		vert.z = -0.01f;
+	}
+
 	// backMesh의 정점과 삼각형을 frontMesh에 추가
 	frontMesh.vertices.insert(frontMesh.vertices.end(), backMesh.vertices.begin(), backMesh.vertices.end());
 	frontMesh.normals.insert(frontMesh.normals.end(), backMesh.normals.begin(), backMesh.normals.end());
@@ -792,7 +800,8 @@ void connectPlanarMeshes(Mesh& frontMesh, Mesh& backMesh, const std::vector<glm:
 			frontMesh.triangles.push_back({ frontIndexB + 1, backIndexB + 1, backIndexA + 1 });
 		}
 	}
-	
+
+	frontMesh.normals = calculateVertexNormals(frontMesh);
 }
 
 bool isPointInsidePolygon(const glm::vec3& point, const std::vector<glm::vec3>& polygon) {
@@ -836,7 +845,7 @@ void randomDart(CDT::Triangulation<double>& cdt, const std::vector<glm::vec3>& l
 	for (int i = 0; i < newPointsCount; ++i) {
 		bool pointAccepted = false;
 		glm::vec3 newPos;
-		int maxAttempts = 100;
+		int maxAttempts = 400;
 		int attempts = 0;
 
 		while (!pointAccepted && attempts < maxAttempts) {
@@ -1030,6 +1039,16 @@ void inflation_top(Mesh& mesh, const std::vector<glm::vec3>& controlPoints) {
 			}
 		}
 	}
+}
+
+void inflate_front_back(
+	Mesh& mesh,
+	const std::vector<glm::vec3>& side_line,
+	const std::vector<glm::vec3>& top_line) {
+	inflation_side(mesh, side_line);
+	inflation_top(mesh, top_line);
+
+	mesh.normals = calculateVertexNormals(mesh);
 }
 
 // EdgeKey 타입 정의 및 makeEdgeKey 함수
@@ -1418,7 +1437,7 @@ void fake_loopSubdivision(Mesh& mesh) {
 	mesh.normals = calculateVertexNormals(mesh);
 }
 
-void loopSubdivision(Mesh& mesh) {
+void loopSubdivision(Mesh& mesh, bool faceSplit) {
 	HalfEdgeMesh heMesh = MeshToHalfEdge(mesh);
 
 	// 1. Mark all vertices as belonging to the original mesh
@@ -1441,34 +1460,36 @@ void loopSubdivision(Mesh& mesh) {
 
 		vert.newPosition = (1.f - n * alpha) * vert.position + alpha * neighbourSum;
 	}
-	
-	// 3. Compute and *store* edge-vertex positions
-	for (Edge& edge : heMesh.edges) {
-		HalfEdge* h = edge.halfEdge;
-		glm::vec3 v1 = h->vertex->position;
-		glm::vec3 v2 = h->pair->vertex->position;
-		glm::vec3 v3 = h->pair->next->pair->vertex->position;
-		glm::vec3 v4 = h->next->pair->vertex->position;
 
-		edge.newPosition = (3.f / 8.f) * (v1 + v2) + (1.f / 8.f) * (v3 + v4);
-	}
+	if (faceSplit) {
+		// 3. Compute and *store* edge-vertex positions
+		for (Edge& edge : heMesh.edges) {
+			HalfEdge* h = edge.halfEdge;
+			glm::vec3 v1 = h->vertex->position;
+			glm::vec3 v2 = h->pair->vertex->position;
+			glm::vec3 v3 = h->pair->next->pair->vertex->position;
+			glm::vec3 v4 = h->next->pair->vertex->position;
+
+			edge.newPosition = (3.f / 8.f) * (v1 + v2) + (1.f / 8.f) * (v3 + v4);
+		}
 
 
-	// 4. Split every edge in the mesh.
-	std::list<Edge> originalEdges = heMesh.edges;
-	for (Edge& e : originalEdges) {
-		glm::vec3 newPositionCopy = e.newPosition;
+		// 4. Split every edge in the mesh.
+		std::list<Edge> originalEdges = heMesh.edges;
+		for (Edge& e : originalEdges) {
+			glm::vec3 newPositionCopy = e.newPosition;
 
-		Vertex* newVert = splitEdge(&e, heMesh);
-		newVert->newPosition = newPositionCopy;
-	}
+			Vertex* newVert = splitEdge(&e, heMesh);
+			newVert->newPosition = newPositionCopy;
+		}
 
-	// 5. Flip any *new* edge that connects an old and new vertex.
-	for (Edge& e : heMesh.edges) {
-		if (e.isNew) {
-			bool firstVertNew = e.halfEdge->vertex->isNew;
-			bool secondVertNew = e.halfEdge->pair->vertex->isNew;
-			if (firstVertNew != secondVertNew) flipEdge(&e);
+		// 5. Flip any *new* edge that connects an old and new vertex.
+		for (Edge& e : heMesh.edges) {
+			if (e.isNew) {
+				bool firstVertNew = e.halfEdge->vertex->isNew;
+				bool secondVertNew = e.halfEdge->pair->vertex->isNew;
+				if (firstVertNew != secondVertNew) flipEdge(&e);
+			}
 		}
 	}
 
@@ -1598,7 +1619,7 @@ void phaseCreateMesh(std::shared_ptr<MyCallbacks>& cb,
 	int& cross_section) {
 
 	for (int i = 0; i < 3; i++) {
-		controlPointVerts[i] = get_control_points(lineVerts[i], 50);
+		controlPointVerts[i] = get_control_points(lineVerts[i], 100);
 	}
 	transform(lineVerts, transformedVerts);
 	cross_section++;
@@ -1617,7 +1638,7 @@ void phaseCreateMesh(std::shared_ptr<MyCallbacks>& cb,
 	);
 
 	//insert_Vertices(cdt, lineVerts[0]);
-	randomDart(cdt, lineVerts[0], 0.15, 50);
+	randomDart(cdt, lineVerts[0], 0.05, 200);
 
 	struct CustomEdge
 	{
@@ -1646,25 +1667,48 @@ void phaseCreateMesh(std::shared_ptr<MyCallbacks>& cb,
 
 	// generating 3D model starts here
 	Mesh front_mesh = get_front_mesh(cdt);
-	front_inflation_side(front_mesh, transformedVerts[1]);
-	front_inflation_top(front_mesh, transformedVerts[2]);
-	front_mesh.normals = calculateVertexNormals(front_mesh);
+	//front_inflation_side(front_mesh, transformedVerts[1]);
+	//front_inflation_top(front_mesh, transformedVerts[2]);
+	//front_mesh.normals = calculateVertexNormals(front_mesh);
 
 	Mesh back_mesh = get_back_mesh(cdt);
-	back_inflation_side(back_mesh, transformedVerts[1]);
-	back_inflation_top(back_mesh, transformedVerts[2]);
-	back_mesh.normals = calculateVertexNormals(back_mesh);
+	//back_inflation_side(back_mesh, transformedVerts[1]);
+	//back_inflation_top(back_mesh, transformedVerts[2]);
+	//back_mesh.normals = calculateVertexNormals(back_mesh);
 
-	// generating 3D model ends here
 	connectPlanarMeshes(front_mesh, back_mesh, controlPointVerts[0]);
-	front_mesh.normals = calculateVertexNormals(front_mesh);
 	fake_loopSubdivision(front_mesh);
-	inflation_side(front_mesh, transformedVerts[1]);
-	inflation_top(front_mesh, transformedVerts[2]);
-	front_mesh.normals = calculateVertexNormals(front_mesh);
-	loopSubdivision(front_mesh);
-	inflation_side(front_mesh, transformedVerts[1]);
-	inflation_top(front_mesh, transformedVerts[2]);
+
+	
+	for (int i = 0; i < 5; i++) {
+		inflate_front_back(front_mesh, transformedVerts[1], transformedVerts[2]);
+		loopSubdivision(front_mesh, false);
+	}
+	
+
+	//fake_loopSubdivision(front_mesh);
+	//loopSubdivision(front_mesh, true);
+	//inflate_front_back(front_mesh, transformedVerts[1], transformedVerts[2]);
+
+	//loopSubdivision(front_mesh, true);
+	//loopSubdivision(front_mesh, true);
+	//loopSubdivision(front_mesh, true);
+	//loopSubdivision(front_mesh, true);
+	//loopSubdivision(front_mesh, true);
+	//fake_loopSubdivision(front_mesh);
+	//front_mesh.normals = calculateVertexNormals(front_mesh);
+	//loopSubdivision(front_mesh, false);
+	//loopSubdivision(front_mesh, false);
+	//loopSubdivision(front_mesh, false);
+	//loopSubdivision(front_mesh, false);
+
+	//fake_loopSubdivision(front_mesh);
+	//inflation_side(front_mesh, transformedVerts[1]);
+	//inflation_top(front_mesh, transformedVerts[2]);
+	//front_mesh.normals = calculateVertexNormals(front_mesh);
+	//loopSubdivision(front_mesh);
+	//inflation_side(front_mesh, transformedVerts[1]);
+	//inflation_top(front_mesh, transformedVerts[2]);
 	saveMeshToOBJ(front_mesh, "C:/Users/dhktj/OneDrive/Desktop/after.obj");
 	//saveMeshToOBJ(front_mesh, "C:/Users/U/Documents/ImaginationModeling/589-689-3D-skeleton/models/merged.obj");
 
