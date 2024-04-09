@@ -1376,6 +1376,48 @@ Mesh HalfEdgeToMesh(HalfEdgeMesh& he) {
 	return mesh;
 }
 
+void fake_loopSubdivision(Mesh& mesh) {
+	std::vector<glm::vec3> new_vertices = mesh.vertices;
+	std::vector<std::vector<int>> new_triangles;
+	std::map<std::pair<int, int>, int> edgeMidpointIndices;
+
+	// 에지의 중점을 계산하고 새로운 정점으로 추가
+	for (const auto& triangle : mesh.triangles) {
+		for (int i = 0; i < 3; ++i) {
+			int v1 = triangle[i];
+			int v2 = triangle[(i + 1) % 3];
+			std::pair<int, int> edge = std::make_pair(std::min(v1, v2), std::max(v1, v2));
+
+			if (edgeMidpointIndices.find(edge) == edgeMidpointIndices.end()) {
+				glm::vec3 midpoint = (mesh.vertices[v1 - 1] + mesh.vertices[v2 - 1]) * 0.5f;
+				new_vertices.push_back(midpoint);
+				edgeMidpointIndices[edge] = new_vertices.size();
+			}
+		}
+	}
+
+	// 새로운 삼각형을 생성
+	for (const auto& triangle : mesh.triangles) {
+		int midpoints[3];
+		for (int i = 0; i < 3; ++i) {
+			int v1 = triangle[i];
+			int v2 = triangle[(i + 1) % 3];
+			std::pair<int, int> edge = std::make_pair(std::min(v1, v2), std::max(v1, v2));
+			midpoints[i] = edgeMidpointIndices[edge];
+		}
+
+		new_triangles.push_back({ triangle[0], midpoints[0], midpoints[2] });
+		new_triangles.push_back({ triangle[1], midpoints[1], midpoints[0] });
+		new_triangles.push_back({ triangle[2], midpoints[2], midpoints[1] });
+		new_triangles.push_back({ midpoints[0], midpoints[1], midpoints[2] });
+	}
+
+	// 메시 업데이트
+	mesh.vertices = new_vertices;
+	mesh.triangles = new_triangles;
+	mesh.normals = calculateVertexNormals(mesh);
+}
+
 void loopSubdivision(Mesh& mesh) {
 	HalfEdgeMesh heMesh = MeshToHalfEdge(mesh);
 
@@ -1607,29 +1649,22 @@ void phaseCreateMesh(std::shared_ptr<MyCallbacks>& cb,
 	front_inflation_side(front_mesh, transformedVerts[1]);
 	front_inflation_top(front_mesh, transformedVerts[2]);
 	front_mesh.normals = calculateVertexNormals(front_mesh);
-	//saveMeshToOBJ(front_mesh, "C:/Users/dhktj/OneDrive/Desktop/front.obj");
 
 	Mesh back_mesh = get_back_mesh(cdt);
 	back_inflation_side(back_mesh, transformedVerts[1]);
 	back_inflation_top(back_mesh, transformedVerts[2]);
 	back_mesh.normals = calculateVertexNormals(back_mesh);
-	//saveMeshToOBJ(back_mesh, "C:/Users/dhktj/OneDrive/Desktop/back.obj");
 
-	connectPlanarMeshes(front_mesh, back_mesh, controlPointVerts[0]);
-	//loopSubdivision(front_mesh);
-	//loopSubdivision(front_mesh);
-	//loopSubdivision(front_mesh);
-	//inflation_side(front_mesh, transformedVerts[1]);
-	//inflation_top(front_mesh, transformedVerts[2]);
-	front_mesh.normals = calculateVertexNormals(front_mesh);
-	//saveMeshToOBJ(front_mesh, "C:/Users/dhktj/OneDrive/Desktop/before.obj");
 	// generating 3D model ends here
-
-	// 여기 여기 여길 좀 보소
+	connectPlanarMeshes(front_mesh, back_mesh, controlPointVerts[0]);
+	front_mesh.normals = calculateVertexNormals(front_mesh);
+	fake_loopSubdivision(front_mesh);
 	inflation_side(front_mesh, transformedVerts[1]);
 	inflation_top(front_mesh, transformedVerts[2]);
+	front_mesh.normals = calculateVertexNormals(front_mesh);
 	loopSubdivision(front_mesh);
-	//loopSubdivision(front_mesh);
+	inflation_side(front_mesh, transformedVerts[1]);
+	inflation_top(front_mesh, transformedVerts[2]);
 	saveMeshToOBJ(front_mesh, "C:/Users/dhktj/OneDrive/Desktop/after.obj");
 	//saveMeshToOBJ(front_mesh, "C:/Users/U/Documents/ImaginationModeling/589-689-3D-skeleton/models/merged.obj");
 
