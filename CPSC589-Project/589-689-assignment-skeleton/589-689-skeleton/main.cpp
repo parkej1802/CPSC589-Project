@@ -1442,142 +1442,6 @@ void loopSubdivision(Mesh& mesh) {
 	
 }
 
-
-void draw(
-	std::shared_ptr<MyCallbacks>& cb,
-	std::vector<std::vector<glm::vec3>>& lineVerts, CPU_Geometry& lineCpu,
-	std::vector<std::vector<glm::vec3>>& controlPointVerts, CPU_Geometry& controlPointCpu,
-	std::vector<std::vector<glm::vec3>>& bsplineVerts, CPU_Geometry& bsplineCurveCpu,
-	std::vector<std::vector<glm::vec3>>& transformedVerts,
-	GPU_Geometry& gpuGeom,
-	int& cross_section) {
-
-	if (cross_section < 3) {
-		// draw grid
-		gpuGeom.setVerts(grid.verts);
-		gpuGeom.setCols(grid.cols);
-		glDrawArrays(GL_LINE_STRIP, 0, GLsizei(2));
-		glDrawArrays(GL_LINE_STRIP, 2, GLsizei(2));
-
-		// draw user input lines 
-		draw_cross_sections(cb, lineVerts, lineCpu, cross_section);
-		gpuGeom.setVerts(lineCpu.verts);
-		gpuGeom.setCols(lineCpu.cols);
-		int start_index = 0;
-		for (int i = 0; i < 3; i++) {
-			glDrawArrays(GL_LINE_STRIP, start_index, GLsizei(lineVerts[i].size()));
-			start_index += lineVerts[i].size();
-		}
-	}
-	else if(cross_section == 3){
-		// get control points
-		for (int i = 0; i < 3; i++) {
-			controlPointVerts[i] = get_control_points(lineVerts[i], 50);
-		}
-		transform(lineVerts, transformedVerts);
-		cross_section++;
-
-		
-		// CDT
-		auto cdt = CDT::Triangulation<double>(
-			CDT::VertexInsertionOrder::Auto,
-			CDT::IntersectingConstraintEdges::TryResolve,
-			0.);
-		cdt.insertVertices(
-			controlPointVerts[0].begin(),
-			controlPointVerts[0].end(),
-			[](const glm::vec3& p) { return p.x; },
-			[](const glm::vec3& p) { return p.y; }
-		);
-
-		//insert_Vertices(cdt, lineVerts[0]);
-		randomDart(cdt, lineVerts[0], 0.15, 50);
-		
-		struct CustomEdge
-		{
-			std::pair<std::size_t, std::size_t> vertices;
-		};
-		
-		std::vector<CustomEdge> edges;
-		for (int i = 0; i < controlPointVerts[0].size() - 1; i++) {
-			CustomEdge edge;
-			edge.vertices = std::make_pair(i, i + 1);
-			edges.push_back(edge);
-		}
-
-		CustomEdge edge;
-		edge.vertices = std::make_pair(controlPointVerts[0].size() - 1, 0);
-		edges.push_back(edge);
-		cdt.insertEdges(
-			edges.begin(),
-			edges.end(),
-			[](const CustomEdge& e) { return e.vertices.first; },
-			[](const CustomEdge& e) { return e.vertices.second; }
-		);
-
-		cdt.eraseOuterTrianglesAndHoles();
-
-
-		// generating 3D model starts here
-		Mesh front_mesh = get_front_mesh(cdt);
-		front_inflation_side(front_mesh, transformedVerts[1]);
-		front_inflation_top(front_mesh, transformedVerts[2]);
-		front_mesh.normals = calculateVertexNormals(front_mesh);
-		//saveMeshToOBJ(front_mesh, "C:/Users/dhktj/OneDrive/Desktop/front.obj");
-
-		Mesh back_mesh = get_back_mesh(cdt);
-		back_inflation_side(back_mesh, transformedVerts[1]);
-		back_inflation_top(back_mesh, transformedVerts[2]);
-		back_mesh.normals = calculateVertexNormals(back_mesh);
-		//saveMeshToOBJ(back_mesh, "C:/Users/dhktj/OneDrive/Desktop/back.obj");
-
-		connectPlanarMeshes(front_mesh, back_mesh, controlPointVerts[0]);
-		//loopSubdivision(front_mesh);
-		//loopSubdivision(front_mesh);
-		//loopSubdivision(front_mesh);
-		//inflation_side(front_mesh, transformedVerts[1]);
-		//inflation_top(front_mesh, transformedVerts[2]);
-		front_mesh.normals = calculateVertexNormals(front_mesh);
-		//saveMeshToOBJ(front_mesh, "C:/Users/dhktj/OneDrive/Desktop/before.obj");
-		// generating 3D model ends here
-
-		// 여기 여기 여길 좀 보소
-		loopSubdivision(front_mesh);
-		//saveMeshToOBJ(front_mesh, "C:/Users/dhktj/OneDrive/Desktop/after.obj");
-		saveMeshToOBJ(front_mesh, "C:/Users/U/Documents/ImaginationModeling/589-689-3D-skeleton/models/merged.obj");
-
-		cdt.triangles;
-		cdt.vertices;
-		cdt.fixedEdges;
-		CDT::extractEdgesFromTriangles(cdt.triangles);
-
-	}
-	else {
-		/*
-		combine(cb, bsplineVerts, bsplineCurveCpu);
-		gpuGeom.setVerts(bsplineCurveCpu.verts);
-		gpuGeom.setCols(bsplineCurveCpu.cols);
-		int start_index = 0;
-		for (int i = 0; i < 3; i++) {
-			glDrawArrays(GL_LINE_STRIP, start_index, GLsizei(bsplineVerts[i].size()));
-			start_index += bsplineVerts[i].size();
-		}
-		*/
-		
-		// show cross sections in 3D
-		combine(cb, transformedVerts, lineCpu);
-		gpuGeom.setVerts(lineCpu.verts);
-		gpuGeom.setCols(lineCpu.cols);
-		int start_index = 0;
-		for (int i = 0; i < 3; i++) {
-			glDrawArrays(GL_LINE_STRIP, start_index, GLsizei(transformedVerts[i].size()));
-			start_index += transformedVerts[i].size();
-		}
-	}
-
-	return;
-}
-
 void drawCommonElements(
 	GPU_Geometry& gpuGeom,
 	CPU_Geometry& lineCpu,
@@ -1764,8 +1628,8 @@ void phaseCreateMesh(std::shared_ptr<MyCallbacks>& cb,
 
 	// 여기 여기 여길 좀 보소
 	loopSubdivision(front_mesh);
-	//saveMeshToOBJ(front_mesh, "C:/Users/dhktj/OneDrive/Desktop/after.obj");
-	saveMeshToOBJ(front_mesh, "C:/Users/U/Documents/ImaginationModeling/589-689-3D-skeleton/models/merged.obj");
+	saveMeshToOBJ(front_mesh, "C:/Users/dhktj/OneDrive/Desktop/after.obj");
+	//saveMeshToOBJ(front_mesh, "C:/Users/U/Documents/ImaginationModeling/589-689-3D-skeleton/models/merged.obj");
 
 	cdt.triangles;
 	cdt.vertices;
