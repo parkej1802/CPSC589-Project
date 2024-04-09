@@ -1226,7 +1226,7 @@ Vertex* splitEdge(Edge* e, HalfEdgeMesh& he) {
 	edgeW->halfEdge = WtC;
 	edgeE->halfEdge = EtC;
 
-	edgeS->isNew = true;
+	edgeS->isNew = false;
 	edgeW->isNew = true;
 	edgeE->isNew = true;
 
@@ -1334,9 +1334,7 @@ void flipEdge(Edge* e) {
 	EtW->next = WtS;
 	WtS->next = StE;
 	StE->next = EtW;
-	
 }
-
 
 struct Vec3Hash {
 	size_t operator()(const glm::vec3& v) const {
@@ -1412,7 +1410,8 @@ void loopSubdivision(Mesh& mesh) {
 
 		edge.newPosition = (3.f / 8.f) * (v1 + v2) + (1.f / 8.f) * (v3 + v4);
 	}
-	
+
+
 	// 4. Split every edge in the mesh.
 	std::list<Edge> originalEdges = heMesh.edges;
 	for (Edge& e : originalEdges) {
@@ -1430,7 +1429,7 @@ void loopSubdivision(Mesh& mesh) {
 			if (firstVertNew != secondVertNew) flipEdge(&e);
 		}
 	}
-	
+
 	// 6. Finally, copy the new vertex positions (Vertex::newPosition) into the
     // usual vertex positions (Vertex::position).
 	for (Vertex& v : heMesh.vertices) {
@@ -1627,7 +1626,10 @@ void phaseCreateMesh(std::shared_ptr<MyCallbacks>& cb,
 	// generating 3D model ends here
 
 	// 여기 여기 여길 좀 보소
+	inflation_side(front_mesh, transformedVerts[1]);
+	inflation_top(front_mesh, transformedVerts[2]);
 	loopSubdivision(front_mesh);
+	//loopSubdivision(front_mesh);
 	saveMeshToOBJ(front_mesh, "C:/Users/dhktj/OneDrive/Desktop/after.obj");
 	//saveMeshToOBJ(front_mesh, "C:/Users/U/Documents/ImaginationModeling/589-689-3D-skeleton/models/merged.obj");
 
