@@ -30,6 +30,9 @@
 
 
 float PI = 3.14159265359;
+bool clear = false;
+bool drew = false;
+bool showDraw = false;
 
 CPU_Geometry grid;
 glm::vec3 red = glm::vec3(1, 0, 0);
@@ -378,30 +381,32 @@ std::vector<glm::vec3> flattenLineVerts(std::vector<std::vector<glm::vec3>> &lin
 
 // let user provide cross sections
 void draw_cross_sections(
-	std::shared_ptr<MyCallbacks> &cb,
-	std::vector<std::vector<glm::vec3>> &lineVerts,
-	CPU_Geometry &cpuGeom,
-	int &cross_section) {
+	std::shared_ptr<MyCallbacks>& cb,
+	std::vector<std::vector<glm::vec3>>& lineVerts,
+	CPU_Geometry& cpuGeom,
+	int& cross_section) {
 
 	if (cb->leftMouseActive()) {
-		// load cpu geometry
 		lineVerts[cross_section].push_back(glm::vec3(cb->getCursorPosGL(), 0.f));
 		cpuGeom.verts = flattenLineVerts(lineVerts);
 
-		// load cpu geometry colors
-		if (cross_section == 0) {
-			cpuGeom.cols.push_back(red);
-		}
-		else if (cross_section == 1) {
-			cpuGeom.cols.push_back(green);
-		}
-		else {
-			cpuGeom.cols.push_back(blue);
+		cpuGeom.cols.clear();
+		for (int i = 0; i < lineVerts.size(); i++) {
+			for (int j = 0; j < lineVerts[i].size(); j++) {
+				if (i == 0) {
+					cpuGeom.cols.push_back(red);
+				}
+				else if (i == 1) {
+					cpuGeom.cols.push_back(green);
+				}
+				else {
+					cpuGeom.cols.push_back(blue);
+				}
+			}
 		}
 	}
-
-	return;
 }
+
 
 void transform(
 	std::vector<std::vector<glm::vec3>>& lineVerts,
@@ -1588,6 +1593,8 @@ void drawCommonElements(
 }
 
 
+int Eulerian_Trail = 0;
+
 void phaseFront(std::shared_ptr<MyCallbacks>& cb,
 	std::vector<std::vector<glm::vec3>>& lineVerts, CPU_Geometry& lineCpu,
 	std::vector<std::vector<glm::vec3>>& controlPointVerts, CPU_Geometry& controlPointCpu,
@@ -1595,7 +1602,16 @@ void phaseFront(std::shared_ptr<MyCallbacks>& cb,
 	GPU_Geometry& gpuGeom,
 	int& cross_section) {
 
-	draw_cross_sections(cb, lineVerts, lineCpu, cross_section);
+	if (clear) {
+		printf("front cleared");
+		lineVerts[0].clear();
+		clear = false;
+		Eulerian_Trail = 0;
+	}
+
+	if (Eulerian_Trail == 1) {
+		draw_cross_sections(cb, lineVerts, lineCpu, cross_section);
+	}
 
 	gpuGeom.setVerts(lineCpu.verts);
 	gpuGeom.setCols(lineCpu.cols);
@@ -1610,9 +1626,18 @@ void phaseSide(std::shared_ptr<MyCallbacks>& cb,
 	int& cross_section) {
 
 
-	draw_cross_sections(cb, lineVerts, lineCpu, cross_section);
+	if (clear) {
+		printf("side cleared");
+		lineVerts[1].clear();
+		clear = false;
+		Eulerian_Trail = 2;
+	}
 
-	
+	if (Eulerian_Trail == 3) {
+		draw_cross_sections(cb, lineVerts, lineCpu, cross_section);
+	}
+
+
 	gpuGeom.setVerts(lineCpu.verts);
 	gpuGeom.setCols(lineCpu.cols);
 
@@ -1629,7 +1654,17 @@ void phaseTop(std::shared_ptr<MyCallbacks>& cb,
 
 
 
-	draw_cross_sections(cb, lineVerts, lineCpu, cross_section);
+	if (clear) {
+		printf("side cleared");
+		lineVerts[2].clear();
+		clear = false;
+		Eulerian_Trail = 4;
+	}
+
+	if (Eulerian_Trail == 5) {
+		draw_cross_sections(cb, lineVerts, lineCpu, cross_section);
+	}
+
 
 	gpuGeom.setVerts(lineCpu.verts);
 	gpuGeom.setCols(lineCpu.cols);
@@ -1637,6 +1672,17 @@ void phaseTop(std::shared_ptr<MyCallbacks>& cb,
 	glDrawArrays(GL_LINE_STRIP, GLsizei(lineVerts[0].size() + lineVerts[1].size()), GLsizei(lineVerts[2].size()));
 
 
+}
+
+void showDrew(std::shared_ptr<MyCallbacks>& cb,
+	std::vector<std::vector<glm::vec3>>& lineVerts, CPU_Geometry& lineCpu,
+	std::vector<std::vector<glm::vec3>>& controlPointVerts, CPU_Geometry& controlPointCpu,
+	std::vector<std::vector<glm::vec3>>& transformedVerts,
+	GPU_Geometry& gpuGeom,
+	int& cross_section) {
+
+	glDrawArrays(GL_LINE_STRIP, 0, GLsizei(lineVerts[0].size()));
+	glDrawArrays(GL_LINE_STRIP, GLsizei(lineVerts[0].size()), GLsizei(lineVerts[1].size()));
 }
 
 void phaseCreateMesh(std::shared_ptr<MyCallbacks>& cb,
@@ -1790,10 +1836,10 @@ int main() {
 
 	GLfloat vertices[] = {
 
-		 0.7f, -0.75f, 0.0f,  1.0f, 1.0f, 1.0f, 
-		 0.9f, -0.75f, 0.0f,  1.0f, 1.0f, 1.0f, 
-		 0.9f, -0.9f, 0.0f,  1.0f, 1.0f, 1.0f,
-		 0.7f, -0.9f, 0.0f,  1.0f, 1.0f, 1.0f,
+		 0.8f, -0.8f, 0.0f,  1.0f, 1.0f, 1.0f, 
+		 0.95f, -0.8f, 0.0f,  1.0f, 1.0f, 1.0f, 
+		 0.95f, -0.95f, 0.0f,  1.0f, 1.0f, 1.0f,
+		 0.8f, -0.95f, 0.0f,  1.0f, 1.0f, 1.0f,
 	};
 
 
@@ -1804,13 +1850,25 @@ int main() {
 
 	GLfloat clearVertices[] = {
 
-		 0.7f, 0.75f, 0.0f,  1.0f, 1.0f, 1.0f,
-		 0.9f, 0.75f, 0.0f,  1.0f, 1.0f, 1.0f,
-		 0.9f, 0.9f, 0.0f,  1.0f, 1.0f, 1.0f,
-		 0.7f, 0.9f, 0.0f,  1.0f, 1.0f, 1.0f,
+		 0.8f, 0.8f, 0.0f,  1.0f, 1.0f, 1.0f,
+		 0.95f, 0.8f, 0.0f,  1.0f, 1.0f, 1.0f,
+		 0.95f, 0.95f, 0.0f,  1.0f, 1.0f, 1.0f,
+		 0.8f, 0.95f, 0.0f,  1.0f, 1.0f, 1.0f,
 	};
 
 	GLuint clearIndices[] = {
+		0, 1, 2,
+		0, 2, 3
+	};
+
+	GLfloat showVertices[] = {
+		 0.8f, 0.6f, 0.0f,  1.0f, 1.0f, 1.0f,
+		 0.95f, 0.6f, 0.0f,  1.0f, 1.0f, 1.0f,
+		 0.95f, 0.75f, 0.0f,  1.0f, 1.0f, 1.0f,
+		 0.8f, 0.75f, 0.0f,  1.0f, 1.0f, 1.0f,
+	};
+
+	GLuint showIndices[] = {
 		0, 1, 2,
 		0, 2, 3
 	};
@@ -1865,8 +1923,33 @@ int main() {
 
 	//=========================================================================================================================//
 
+	GLuint VAO3, VBO3, EBO3;
+	glGenVertexArrays(1, &VAO3);
+	glGenBuffers(1, &VBO3);
+	glGenBuffers(1, &EBO3);
+
+	glBindVertexArray(VAO3);
+
+	glBindBuffer(GL_ARRAY_BUFFER, VBO3);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(showVertices), showVertices, GL_STATIC_DRAW);
+
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO3);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(showIndices), showIndices, GL_STATIC_DRAW);
+
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)0);
+	glEnableVertexAttribArray(0);
+
+	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(3 * sizeof(float)));
+	glEnableVertexAttribArray(1);
+
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+	glBindVertexArray(0);
+
+
+	//=========================================================================================================================//
 	// RENDER LOOP
 	while (!window.shouldClose()) {
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 		// Tell callbacks object a new frame's begun BEFORE polling events!
 		cb->incrementFrameCount();
@@ -1879,7 +1962,6 @@ int main() {
 		glBindVertexArray(VAO2);
 		glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 		glBindVertexArray(0);
-
 		/*
 
 		// If mouse just went down, see if it was on a point.
@@ -1897,32 +1979,41 @@ int main() {
 		// when the left button gets pressed increase the cross_section
 		if (cb->leftMouseJustPressed()) {
 			std::cout << "Position: " << glm::vec3(cb->getCursorPosGL(), 0.f) << std::endl;
-			if (cb->getCursorPosGL().x >= 0.7f && cb->getCursorPosGL().x <= 0.9f && cb->getCursorPosGL().y <= -0.75f && cb->getCursorPosGL().y >= -0.9f) {
+			if (cross_section == 0 && Eulerian_Trail < 2) {
+				Eulerian_Trail++;
+			}
+
+			if (cross_section == 1 && Eulerian_Trail < 4) {
+				Eulerian_Trail++;
+			}
+
+			if (cross_section == 2 && Eulerian_Trail < 6) {
+				Eulerian_Trail++;
+			}
+	
+			if (cb->getCursorPosGL().x >= 0.8f && cb->getCursorPosGL().x <= 0.95f && cb->getCursorPosGL().y <= -0.8f && cb->getCursorPosGL().y >= -0.95f) {
 				button = true;
 				if (cross_section < 5) cross_section++;
+				
+				
+
+			}
+
+			if (cb->getCursorPosGL().x >= 0.8f && cb->getCursorPosGL().x <= 0.95f && cb->getCursorPosGL().y >= 0.8f && cb->getCursorPosGL().y <= 0.95f) {
+				printf("clear");
+				clear = true;
+		
 
 			}
 
 			
 		}
 
+		
 		if (cb->rightMouseJustPressed()) {
 
-			float maxFY = findFrontMaxY(transformedVerts[0]);
-			float maxFX = findFrontMaxX(transformedVerts[0]);
-			float minFY = findFrontMinY(transformedVerts[0]);
-			float minFX = findFrontMinX(transformedVerts[0]);
-			std::cout << "Max Front X : " << maxFX << std::endl;
-			std::cout << "Max Front Y : " << maxFY << std::endl;
-			std::cout << "Min Front X : " << minFX << std::endl;
-			std::cout << "Min Front Y : " << minFY << std::endl;
-
-			float maxSY = findSideMaxY(transformedVerts[1]);
-			float maxSZ = findSideMaxZ(transformedVerts[1]);
-			std::cout << "Max Side Y : " << maxSY << std::endl;
-			std::cout << "Max Side Z : " << maxSZ << std::endl;
-
-
+			showDraw = !showDraw;
+			//std::cout << "Show draw: " << showDraw << std::endl;
 		}
 
 		/*
@@ -1968,7 +2059,7 @@ int main() {
 
 		if (ImGui::Button("clear pts")) {
 			change = true;
-			lineVerts.clear();
+			lineVerts[0].clear();
 		}
 
 		ImGui::Text("Average %.1f ms/frame (%.1f fps)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
@@ -1987,7 +2078,7 @@ int main() {
 		
 		glPointSize(pointSize);
 
-		glEnable(GL_FRAMEBUFFER_SRGB);
+		//glEnable(GL_FRAMEBUFFER_SRGB);
 		//glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 		// actual drawing happening here
@@ -2049,8 +2140,16 @@ int main() {
 				cross_section);
 		}
 
+		if (showDraw) {
+			showDrew(cb,
+				lineVerts, lineCpu,
+				controlPointVerts, controlPointCpu,
+				transformedVerts,
+				gpuGeom,
+				cross_section);
+		}
 		
-		//glDisable(GL_FRAMEBUFFER_SRGB); // disable sRGB for things like imgui
+		glDisable(GL_FRAMEBUFFER_SRGB); // disable sRGB for things like imgui
 
 		ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
