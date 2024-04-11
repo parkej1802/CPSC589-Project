@@ -845,7 +845,7 @@ void randomDart(CDT::Triangulation<double>& cdt, const std::vector<glm::vec3>& l
 	for (int i = 0; i < newPointsCount; ++i) {
 		bool pointAccepted = false;
 		glm::vec3 newPos;
-		int maxAttempts = 400;
+		int maxAttempts = 100;
 		int attempts = 0;
 
 		while (!pointAccepted && attempts < maxAttempts) {
@@ -1504,6 +1504,37 @@ void loopSubdivision(Mesh& mesh, bool faceSplit) {
 	
 }
 
+void laplacian(Mesh& mesh) {
+	HalfEdgeMesh heMesh = MeshToHalfEdge(mesh);
+
+	for (auto& vert : heMesh.vertices) {
+
+		auto neighbours = getNeighbours(&vert);
+		int n = neighbours.size();
+
+		glm::vec3 m = glm::vec3(0.f, 0.f, 0.f);
+		for (auto& neighbour : neighbours) {
+			m.x = m.x + neighbour->position.x;
+			m.y = m.y + neighbour->position.y;
+			m.z = m.z + neighbour->position.z;
+		}
+
+		m.x = m.x / n;
+		m.y = m.y / n;
+		m.z = m.z / n;
+
+		vert.position.x = m.x;
+		vert.position.y = m.y;
+		vert.position.z = m.z;
+
+		//vert.position.x = m.x - vert.position.x;
+		//vert.position.y = m.y - vert.position.y;
+		//vert.position.z = m.z - vert.position.z;
+	}
+
+	mesh = HalfEdgeToMesh(heMesh);
+}
+
 void drawCommonElements(
 	GPU_Geometry& gpuGeom,
 	CPU_Geometry& lineCpu,
@@ -1619,7 +1650,7 @@ void phaseCreateMesh(std::shared_ptr<MyCallbacks>& cb,
 	int& cross_section) {
 
 	for (int i = 0; i < 3; i++) {
-		controlPointVerts[i] = get_control_points(lineVerts[i], 100);
+		controlPointVerts[i] = get_control_points(lineVerts[i], 50);
 	}
 	transform(lineVerts, transformedVerts);
 	cross_section++;
@@ -1638,7 +1669,7 @@ void phaseCreateMesh(std::shared_ptr<MyCallbacks>& cb,
 	);
 
 	//insert_Vertices(cdt, lineVerts[0]);
-	randomDart(cdt, lineVerts[0], 0.05, 200);
+	randomDart(cdt, lineVerts[0], 0.15, 100);
 
 	struct CustomEdge
 	{
@@ -1667,24 +1698,30 @@ void phaseCreateMesh(std::shared_ptr<MyCallbacks>& cb,
 
 	// generating 3D model starts here
 	Mesh front_mesh = get_front_mesh(cdt);
+	fake_loopSubdivision(front_mesh);
 	//front_inflation_side(front_mesh, transformedVerts[1]);
 	//front_inflation_top(front_mesh, transformedVerts[2]);
 	//front_mesh.normals = calculateVertexNormals(front_mesh);
 
 	Mesh back_mesh = get_back_mesh(cdt);
+	fake_loopSubdivision(back_mesh);
 	//back_inflation_side(back_mesh, transformedVerts[1]);
 	//back_inflation_top(back_mesh, transformedVerts[2]);
 	//back_mesh.normals = calculateVertexNormals(back_mesh);
 
 	connectPlanarMeshes(front_mesh, back_mesh, controlPointVerts[0]);
-	fake_loopSubdivision(front_mesh);
+	//fake_loopSubdivision(front_mesh);
 
-	
+	inflate_front_back(front_mesh, transformedVerts[1], transformedVerts[2]);
+	//laplacian(front_mesh);
+	//loopSubdivision(front_mesh, false);
+	/*
 	for (int i = 0; i < 5; i++) {
 		inflate_front_back(front_mesh, transformedVerts[1], transformedVerts[2]);
-		loopSubdivision(front_mesh, false);
+		//loopSubdivision(front_mesh, false);
+		laplacian(front_mesh);
 	}
-	
+	*/
 
 	//fake_loopSubdivision(front_mesh);
 	//loopSubdivision(front_mesh, true);
