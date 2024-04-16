@@ -1557,22 +1557,23 @@ void phaseCreateMesh(std::shared_ptr<MyCallbacks>& cb,
 
 
 	// generating 3D model starts here
-	Mesh front_mesh = get_front_mesh(cdt);
-	fake_loopSubdivision(front_mesh);
-	fake_loopSubdivision(front_mesh);
+	Mesh mesh = get_front_mesh(cdt);
+	fake_loopSubdivision(mesh);
+	fake_loopSubdivision(mesh);
 
-	auto boundary = boundary_vertices(front_mesh);
-	generate3dMesh(front_mesh, boundary);
-	inflate_front_back(front_mesh, transformedVerts[1], transformedVerts[2]);
-	loopSubdivision(front_mesh, false);
+	auto boundary = boundary_vertices(mesh);
+	generate3dMesh(mesh, boundary);
+	inflate_front_back(mesh, transformedVerts[1], transformedVerts[2]);
+	loopSubdivision(mesh, false);
+
 	/*
-	for (int i = 0; i < 5; i++) {
+	for (int i = 0; i < 2; i++) {
 		inflate_front_back(front_mesh, transformedVerts[1], transformedVerts[2]);
 		loopSubdivision(front_mesh, false);
 		//laplacian(front_mesh);
 	}
 	*/
-	saveMeshToOBJ(front_mesh, "C:/Users/dhktj/OneDrive/Desktop/after.obj");
+	saveMeshToOBJ(mesh, "C:/Users/dhktj/OneDrive/Desktop/output.obj");
 	//saveMeshToOBJ(front_mesh, "C:/Users/U/Documents/ImaginationModeling/589-689-3D-skeleton/models/merged.obj");
 	
 
