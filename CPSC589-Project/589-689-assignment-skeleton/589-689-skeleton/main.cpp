@@ -23,7 +23,7 @@
 #include "Shader.h"
 #include "Texture.h"
 #include "Camera.h"
-
+#include "Geometry3D.h"
 #include "GeomLoaderForOBJ.h"
 #include "glm/glm.hpp"
 #include "glm/gtc/type_ptr.hpp"
@@ -35,7 +35,8 @@ float PI = 3.14159265359;
 bool clear = false;
 bool drew = false;
 bool showDraw = false;
-bool rendering3D = true;
+bool rendering3D = false;
+bool quit = false;
 
 CPU_Geometry grid;
 glm::vec3 red = glm::vec3(1, 0, 0);
@@ -251,23 +252,23 @@ public:
 		: fileName(fileName)
 	{
 		// Uses our .obj loader (relying on the tinyobjloader library).
-		cpuGeom1 = GeomLoaderForOBJ::loadIntoCPUGeometry(fileName);
-		gpuGeom1.bind();
-		gpuGeom1.setVerts(cpuGeom1.verts);
-		gpuGeom1.setNormals(cpuGeom1.normals);
-		gpuGeom1.setUVs(cpuGeom1.uvs);
+		cpuGeom3D = GeomLoaderForOBJ::loadIntoCPUGeometry(fileName);
+		gpuGeom3D.bind();
+		gpuGeom3D.setVerts(cpuGeom3D.verts);
+		gpuGeom3D.setNormals(cpuGeom3D.normals);
+		gpuGeom3D.setUVs(cpuGeom3D.uvs);
 	}
 
-	void bind() { gpuGeom1.bind(); }
+	void bind() { gpuGeom3D.bind(); }
 
-	size_t numVerts() { return cpuGeom1.verts.size(); }
+	size_t numVerts() { return cpuGeom3D.verts.size(); }
 
-	bool hasUVs() { return (cpuGeom1.uvs.size() > 0); }
+	bool hasUVs() { return (cpuGeom3D.uvs.size() > 0); }
 
 private:
 	std::string fileName;
-	CPU_Geometry cpuGeom1;
-	GPU_Geometry gpuGeom1;
+	CPU_Geometry3D cpuGeom3D;
+	GPU_Geometry3D gpuGeom3D;
 };
 
 
@@ -365,6 +366,7 @@ public:
 				screenMouseY = ypos;
 			}
 		}
+
 	}
 
 	virtual void scrollCallback(double xoffset, double yoffset) {
@@ -526,33 +528,7 @@ private:
 
 };
 
-/*
-class ModelInfo {
-public:
-	ModelInfo(std::string fileName)
-		: fileName(fileName)
-	{
-		// Uses our .obj loader (relying on the tinyobjloader library).
-		cpuGeom3D = GeomLoaderForOBJ::loadIntoCPUGeometry(fileName);
-		gpuGeom3D.bind();
-		gpuGeom3D.setVerts(cpuGeom3D.verts);
-		gpuGeom3D.setNormals(cpuGeom3D.normals);
-		gpuGeom3D.setUVs(cpuGeom3D.uvs);
-	}
 
-	void bind() { gpuGeom3D.bind(); }
-
-	size_t numVerts() { return cpuGeom3D.verts.size(); }
-
-	bool hasUVs() { return (cpuGeom3D.uvs.size() > 0); }
-
-private:
-	std::string fileName;
-	CPU_Geometry cpuGeom3D;
-	GPU_Geometry gpuGeom3D;
-};
-
-*/
 bool operator==(const glm::vec3& a, const glm::vec3& b) {
 	return a.x == b.x && a.y == b.y && a.z == b.z;
 
@@ -1811,123 +1787,94 @@ void showCombined(std::shared_ptr<MyCallbacks>& cb,
 
 int main() {
 
-	if (rendering3D) {
-		Log::debug("Starting main");
-
-		// WINDOW
-		glfwInit();
-		Window window(800, 800, "CPSC 589/689"); // could set callbacks at construction if desired
-
-		GLDebug::enable();
-
-		// SHADERS
-		ShaderProgram shader3D("shaders/3d.vert", "shaders/3d.frag");
-		auto cb = std::make_shared<MyCallbacks>(shader3D, window.getWidth(), window.getHeight());
-		window.setCallbacks(cb);
-
-		window.setupImGui();
-		std::unordered_map<std::string, ModelInfo> models;
-		//models.emplace("wall", ModelInfo("./models/back.obj"));
-		//models.emplace("Cow", ModelInfo("./models/spot/spot_triangulated.obj"));
-		models.emplace("Cow", ModelInfo("C:/Users/U/Documents/ImaginationModeling/589-689-3D-skeleton/models/toru.obj"));
-		models.emplace("Torus", ModelInfo("./models/output1.obj"));
-		//models.emplace("Cow", ModelInfo("./models/output1.obj"));
-		models.emplace("Fish", ModelInfo("./models/blub/blub_triangulated.obj"));
+	while (!quit) {
 
 
-		// Select first model by default.
-		std::string selectedModelName = models.begin()->first;
-		models.at(selectedModelName).bind(); // Bind it.
+		if (rendering3D) {
+			Log::debug("Starting main");
 
-		// A "dictionary" that maps textures' ImGui display names to their Texture.
-		// Because Texture has no default constructor
-		// (and there's no good one for it in its current form)
-		// We have to use .at() and .emplace() instead of "[]" notation.
-		// See: https://stackoverflow.com/questions/29826155/why-a-default-constructor-is-needed-using-unordered-map-and-tuple
-		std::unordered_map<std::string, Texture> textures;
-		textures.emplace("Cow", Texture("C:/Users/U/Documents/ImaginationModeling/589-689-3D-skeleton/textures/spot/spot_texture.png", GL_LINEAR));
-		textures.emplace("Fish", Texture("./textures/blub/blub_texture.png", GL_LINEAR));
-		const std::string noTexName = "None";
+			// WINDOW
+			glfwInit();
+			Window window(800, 800, "CPSC 589/689"); // could set callbacks at construction if desired
 
-		// Select first texture by default.
-		std::string selectedTexName = textures.begin()->first;
-		textures.at(selectedTexName).bind(); // Bind it.
+			GLDebug::enable();
 
-		// Say we're using textures (if the model supports them).
-		bool texExistence = models.at(selectedModelName).hasUVs();
+			// SHADERS
+			ShaderProgram shader3D("shaders/3d.vert", "shaders/3d.frag");
+			auto cb = std::make_shared<Callbacks3D>(shader3D, window.getWidth(), window.getHeight());
+			window.setCallbacks(cb);
 
-		// Some variables for shading that ImGui may alter.
-		glm::vec3 lightPos(0.f, 35.f, -35.f);
-		glm::vec3 lightCol(1.f);
-		glm::vec3 diffuseCol(1.f, 0.f, 0.f);
-		float ambientStrength = 0.035f;
-		bool simpleWireframe = false;
-
-		// Set the initial, default values of the shading uniforms.
-		shader3D.use();
-		cb->updateShadingUniforms(lightPos, lightCol, diffuseCol, ambientStrength, texExistence);
+			window.setupImGui();
+			std::unordered_map<std::string, ModelInfo> models;
+			//models.emplace("wall", ModelInfo("./models/back.obj"));
+			//models.emplace("Cow", ModelInfo("./models/spot/spot_triangulated.obj"));
+			models.emplace("Cow", ModelInfo("C:/Users/U/Documents/ImaginationModeling/589-689-3D-skeleton/models/merged.obj"));
+			models.emplace("Torus", ModelInfo("./models/output1.obj"));
+			//models.emplace("Cow", ModelInfo("./models/output1.obj"));
+			models.emplace("Fish", ModelInfo("./models/blub/blub_triangulated.obj"));
 
 
-		// RENDER LOOP
-		while (!window.shouldClose()) {
-			glfwPollEvents();
+			// Select first model by default.
+			std::string selectedModelName = models.begin()->first;
+			models.at(selectedModelName).bind(); // Bind it.
+
+			// A "dictionary" that maps textures' ImGui display names to their Texture.
+			// Because Texture has no default constructor
+			// (and there's no good one for it in its current form)
+			// We have to use .at() and .emplace() instead of "[]" notation.
+			// See: https://stackoverflow.com/questions/29826155/why-a-default-constructor-is-needed-using-unordered-map-and-tuple
+			std::unordered_map<std::string, Texture> textures;
+			textures.emplace("Cow", Texture("C:/Users/U/Documents/ImaginationModeling/589-689-3D-skeleton/textures/spot/spot_texture.png", GL_LINEAR));
+			textures.emplace("Fish", Texture("./textures/blub/blub_texture.png", GL_LINEAR));
+			const std::string noTexName = "None";
+
+			// Select first texture by default.
+			std::string selectedTexName = textures.begin()->first;
+			textures.at(selectedTexName).bind(); // Bind it.
+
+			// Say we're using textures (if the model supports them).
+			bool texExistence = models.at(selectedModelName).hasUVs();
+
+			// Some variables for shading that ImGui may alter.
+			glm::vec3 lightPos(0.f, 35.f, -35.f);
+			glm::vec3 lightCol(1.f);
+			glm::vec3 diffuseCol(1.f, 0.f, 0.f);
+			float ambientStrength = 0.035f;
+			bool simpleWireframe = false;
+
+			// Set the initial, default values of the shading uniforms.
+			shader3D.use();
+			cb->updateShadingUniforms(lightPos, lightCol, diffuseCol, ambientStrength, texExistence);
 
 
-			// Three functions that must be called each new frame.
-			ImGui_ImplOpenGL3_NewFrame();
-			ImGui_ImplGlfw_NewFrame();
-			ImGui::NewFrame();
+			// RENDER LOOP
+			while (!window.shouldClose()) {
+				glfwPollEvents();
 
-			ImGui::Begin("Sample window.");
 
-			bool change = false; // Whether any ImGui variable's changed.
+				// Three functions that must be called each new frame.
+				ImGui_ImplOpenGL3_NewFrame();
+				ImGui_ImplGlfw_NewFrame();
+				ImGui::NewFrame();
 
-			// A drop-down box for choosing the 3D model to render.
-			if (ImGui::BeginCombo("Model", selectedModelName.c_str()))
-			{
-				// Iterate over our dictionary's key-val pairs.
-				for (auto& keyVal : models) {
-					// Check if this key (a model display name) was last selected.
-					const bool isSelected = (selectedModelName == keyVal.first);
+				ImGui::Begin("Sample window.");
 
-					// Now check if the user is currently selecting that model.
-					// The use of "isSelected" just changes the colour of the box.
-					if (ImGui::Selectable(keyVal.first.c_str(), isSelected))
-					{
-						selectedModelName = keyVal.first;
-						keyVal.second.bind(); // Bind the selected model.
-					}
-					// Sets the initial focus when the combo is opened
-					if (isSelected) ImGui::SetItemDefaultFocus();
-				}
-				ImGui::EndCombo();
-				change = true;
-			}
+				bool change = false; // Whether any ImGui variable's changed.
 
-			// Only display the texture dropdown if applicable.
-			if (models.at(selectedModelName).hasUVs())
-			{
-				// A drop-down box for choosing the texture to use.
-				if (ImGui::BeginCombo("Texture", selectedTexName.c_str()))
+				// A drop-down box for choosing the 3D model to render.
+				if (ImGui::BeginCombo("Model", selectedModelName.c_str()))
 				{
-					// First, display an option to select NO texture!
-					const bool noneSelected = selectedTexName == noTexName;
-					if (ImGui::Selectable(noTexName.c_str(), noneSelected))
-					{
-						selectedTexName = noTexName;
-					}
-					if (noneSelected) ImGui::SetItemDefaultFocus();
-
-					// Then, present our dictionary's contents as other texture options.
-					for (auto& keyVal : textures) {
+					// Iterate over our dictionary's key-val pairs.
+					for (auto& keyVal : models) {
 						// Check if this key (a model display name) was last selected.
-						const bool isSelected = (selectedTexName == keyVal.first);
-						// Now check if the user is currently selecting that texture.
+						const bool isSelected = (selectedModelName == keyVal.first);
+
+						// Now check if the user is currently selecting that model.
 						// The use of "isSelected" just changes the colour of the box.
 						if (ImGui::Selectable(keyVal.first.c_str(), isSelected))
 						{
-							selectedTexName = keyVal.first;
-							keyVal.second.bind(); // Bind the selected texture.
+							selectedModelName = keyVal.first;
+							keyVal.second.bind(); // Bind the selected model.
 						}
 						// Sets the initial focus when the combo is opened
 						if (isSelected) ImGui::SetItemDefaultFocus();
@@ -1935,585 +1882,470 @@ int main() {
 					ImGui::EndCombo();
 					change = true;
 				}
+
+				// Only display the texture dropdown if applicable.
+				if (models.at(selectedModelName).hasUVs())
+				{
+					// A drop-down box for choosing the texture to use.
+					if (ImGui::BeginCombo("Texture", selectedTexName.c_str()))
+					{
+						// First, display an option to select NO texture!
+						const bool noneSelected = selectedTexName == noTexName;
+						if (ImGui::Selectable(noTexName.c_str(), noneSelected))
+						{
+							selectedTexName = noTexName;
+						}
+						if (noneSelected) ImGui::SetItemDefaultFocus();
+
+						// Then, present our dictionary's contents as other texture options.
+						for (auto& keyVal : textures) {
+							// Check if this key (a model display name) was last selected.
+							const bool isSelected = (selectedTexName == keyVal.first);
+							// Now check if the user is currently selecting that texture.
+							// The use of "isSelected" just changes the colour of the box.
+							if (ImGui::Selectable(keyVal.first.c_str(), isSelected))
+							{
+								selectedTexName = keyVal.first;
+								keyVal.second.bind(); // Bind the selected texture.
+							}
+							// Sets the initial focus when the combo is opened
+							if (isSelected) ImGui::SetItemDefaultFocus();
+						}
+						ImGui::EndCombo();
+						change = true;
+					}
+				}
+
+				// We'll only render with a texture if the model has UVs and a texture was chosen.
+				texExistence = (models.at(selectedModelName).hasUVs() && selectedTexName != noTexName);
+
+				// If a texture is not in use, the user can pick the diffuse colour.
+				if (!texExistence) change |= ImGui::ColorEdit3("Diffuse colour", glm::value_ptr(diffuseCol));
+
+				// The rest of our ImGui widgets.
+				change |= ImGui::DragFloat3("Light's position", glm::value_ptr(lightPos));
+				change |= ImGui::ColorEdit3("Light's colour", glm::value_ptr(lightCol));
+				change |= ImGui::SliderFloat("Ambient strength", &ambientStrength, 0.0f, 1.f);
+				change |= ImGui::Checkbox("Simple wireframe", &simpleWireframe);
+
+				// Framerate display, in case you need to debug performance.
+				ImGui::Text("Average %.1f ms/frame (%.1f fps)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
+				ImGui::End();
+				ImGui::Render();
+
+				glEnable(GL_LINE_SMOOTH);
+				glEnable(GL_FRAMEBUFFER_SRGB);
+				glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
+				glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+				glEnable(GL_DEPTH_TEST);
+				glPolygonMode(GL_FRONT_AND_BACK, (simpleWireframe ? GL_LINE : GL_FILL));
+
+				shader3D.use();
+				if (change)
+				{
+					// If any of our shading values was updated, we need to update the
+					// respective GLSL uniforms.
+					cb->updateShadingUniforms(lightPos, lightCol, diffuseCol, ambientStrength, texExistence);
+				}
+				cb->viewPipeline();
+
+				glDrawArrays(GL_TRIANGLES, 0, GLsizei(models.at(selectedModelName).numVerts()));
+
+				glDisable(GL_FRAMEBUFFER_SRGB); // disable sRGB for things like imgui
+
+				ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+
+				window.swapBuffers();
 			}
 
-			// We'll only render with a texture if the model has UVs and a texture was chosen.
-			texExistence = (models.at(selectedModelName).hasUVs() && selectedTexName != noTexName);
+			// Cleanup
+			/*
+			ImGui_ImplOpenGL3_Shutdown();
+			ImGui_ImplGlfw_Shutdown();
+			ImGui::DestroyContext();
 
-			// If a texture is not in use, the user can pick the diffuse colour.
-			if (!texExistence) change |= ImGui::ColorEdit3("Diffuse colour", glm::value_ptr(diffuseCol));
-
-			// The rest of our ImGui widgets.
-			change |= ImGui::DragFloat3("Light's position", glm::value_ptr(lightPos));
-			change |= ImGui::ColorEdit3("Light's colour", glm::value_ptr(lightCol));
-			change |= ImGui::SliderFloat("Ambient strength", &ambientStrength, 0.0f, 1.f);
-			change |= ImGui::Checkbox("Simple wireframe", &simpleWireframe);
-
-			// Framerate display, in case you need to debug performance.
-			ImGui::Text("Average %.1f ms/frame (%.1f fps)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
-			ImGui::End();
-			ImGui::Render();
-
-			glEnable(GL_LINE_SMOOTH);
-			glEnable(GL_FRAMEBUFFER_SRGB);
-			glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
-			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-			glEnable(GL_DEPTH_TEST);
-			glPolygonMode(GL_FRONT_AND_BACK, (simpleWireframe ? GL_LINE : GL_FILL));
-
-			shader3D.use();
-			if (change)
-			{
-				// If any of our shading values was updated, we need to update the
-				// respective GLSL uniforms.
-				cb->updateShadingUniforms(lightPos, lightCol, diffuseCol, ambientStrength, texExistence);
-			}
-			cb->viewPipeline();
-
-			glDrawArrays(GL_TRIANGLES, 0, GLsizei(models.at(selectedModelName).numVerts()));
-
-			glDisable(GL_FRAMEBUFFER_SRGB); // disable sRGB for things like imgui
-
-			ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
-
-			window.swapBuffers();
+			glfwTerminate();
+			return 0;
+			*/
 		}
 
-		// Cleanup
-		ImGui_ImplOpenGL3_Shutdown();
-		ImGui_ImplGlfw_Shutdown();
-		ImGui::DestroyContext();
+		else if (!rendering3D) {
+			// WINDOW
+			glfwInit();
+			Window window(800, 800, "CPSC 589/689"); // could set callbacks at construction if desired
 
-		glfwTerminate();
-		return 0;
-	}
+			GLDebug::enable();
 
-	else if (!rendering3D) {
-	// WINDOW
-	glfwInit();
-	Window window(800, 800, "CPSC 589/689"); // could set callbacks at construction if desired
+			ShaderProgram shader("shaders/test.vert", "shaders/test.frag");
 
-	GLDebug::enable();
-
-	ShaderProgram shader("shaders/test.vert", "shaders/test.frag");
-	ShaderProgram shader3D("shaders/test.vert", "shaders/test.frag");
-	auto cb = std::make_shared<MyCallbacks>(shader, window.getWidth(), window.getHeight());
-	auto db = std::make_shared<MyCallbacks>(shader3D, window.getWidth(), window.getHeight());
-
-	if (!rendering3D) {
-		window.setCallbacks(cb);
-	}
-	else {
-		window.setCallbacks(db);
-	}
-
-	window.setupImGui();
-
-	// Make sure this call comes AFTER GLFW callbacks set.
-
-	   //===============================================================================================================//
-	std::unordered_map<std::string, ModelInfo> models;
-	//models.emplace("Cow", ModelInfo("C:/Users/U/Documents/ImaginationModeling/589-689-3D-skeleton/models/toru.obj"));
-	//models.emplace("Fish", ModelInfo("./models/blub/blub_triangulated.obj"));
-
-	//std::string selectedModelName = models.begin()->first;
-	//models.at(selectedModelName).bind(); // Bind it.
-	models.emplace("Cow", ModelInfo("C:/Users/U/Documents/ImaginationModeling/589-689-3D-skeleton/models/toru.obj"));
-	models.emplace("Torus", ModelInfo("./models/output1.obj"));
-	//models.emplace("Cow", ModelInfo("./models/output1.obj"));
-	models.emplace("Fish", ModelInfo("./models/blub/blub_triangulated.obj"));
+			auto cb = std::make_shared<MyCallbacks>(shader, window.getWidth(), window.getHeight());
 
 
-	// Select first model by default.
-	std::string selectedModelName = models.begin()->first;
-	models.at(selectedModelName).bind(); // Bind it.
+			window.setCallbacks(cb);
+
+			window.setupImGui();
+
+			//===============================================================================================================//
+
+			// Variables that ImGui will alter.
+			float pointSize = 10.0f; // Diameter of drawn points
+			float color[3] = { 1.f, 0.f, 0.f }; // Color of new points
+			bool drawLines = true; // Whether to draw connecting lines
+			int selectedPointIndex = -1; // Used for point dragging & deletion
 
 
-	std::unordered_map<std::string, Texture> textures;
-	textures.emplace("Cow", Texture("C:/Users/U/Documents/ImaginationModeling/589-689-3D-skeleton/textures/spot/spot_texture.png", GL_LINEAR));
-	textures.emplace("Fish", Texture("./textures/blub/blub_texture.png", GL_LINEAR));
-	const std::string noTexName = "None";
+			// GEOMETRY
+			int cross_section = 0;
+			CPU_Geometry lineCpu;
+			CPU_Geometry controlPointCpu;
+			CPU_Geometry bsplineCurveCpu;
 
-	std::string selectedTexName = textures.begin()->first;
-	textures.at(selectedTexName).bind(); // Bind it.
+			std::vector<std::vector<glm::vec3>> lineVerts(3);
+			std::vector<std::vector<glm::vec3>> transformedVerts(3);
+			std::vector<std::vector<glm::vec3>> controlPointVerts(3);
+			std::vector<std::vector<glm::vec3>> bsplineCurveVerts(3);
 
-	// Say we're using textures (if the model supports them).
-	bool texExistence = models.at(selectedModelName).hasUVs();
+			grid.verts = { glm::vec3(-1.0f, .0f, .0f), glm::vec3(1.0f, .0f, .0f), glm::vec3(.0f, 1.0f, .0f), glm::vec3(.0f, -1.0f, .0f) };
+			grid.cols = { glm::vec3(1.0f, 1.0f, 1.0f), glm::vec3(1.0f, 1.0f, 1.0f), glm::vec3(1.0f, 1.0f, 1.0f), glm::vec3(1.0f, 1.0f, 1.0f) };
 
-	// Some variables for shading that ImGui may alter.
-	glm::vec3 lightPos(0.f, 35.f, -35.f);
-	glm::vec3 lightCol(1.f);
-	glm::vec3 diffuseCol(1.f, 0.f, 0.f);
-	float ambientStrength = 0.035f;
-	bool simpleWireframe = false;
-	shader3D.use();
-	db->updateShadingUniforms(lightPos, lightCol, diffuseCol, ambientStrength, texExistence);
-	//===============================================================================================================//
-
-	// Variables that ImGui will alter.
-	float pointSize = 10.0f; // Diameter of drawn points
-	float color[3] = { 1.f, 0.f, 0.f }; // Color of new points
-	bool drawLines = true; // Whether to draw connecting lines
-	int selectedPointIndex = -1; // Used for point dragging & deletion
+			GPU_Geometry gpuGeom;
 
 
-	// GEOMETRY
-	int cross_section = 0;
-	CPU_Geometry lineCpu;
-	CPU_Geometry controlPointCpu;
-	CPU_Geometry bsplineCurveCpu;
+			//================================================================================================================//
 
-	std::vector<std::vector<glm::vec3>> lineVerts(3);
-	std::vector<std::vector<glm::vec3>> transformedVerts(3);
-	std::vector<std::vector<glm::vec3>> controlPointVerts(3);
-	std::vector<std::vector<glm::vec3>> bsplineCurveVerts(3);
+			GLfloat vertices[] = {
 
-	grid.verts = { glm::vec3(-1.0f, .0f, .0f), glm::vec3(1.0f, .0f, .0f), glm::vec3(.0f, 1.0f, .0f), glm::vec3(.0f, -1.0f, .0f) };
-	grid.cols = { glm::vec3(1.0f, 1.0f, 1.0f), glm::vec3(1.0f, 1.0f, 1.0f), glm::vec3(1.0f, 1.0f, 1.0f), glm::vec3(1.0f, 1.0f, 1.0f) };
-
-	GPU_Geometry gpuGeom;
+				 0.8f, -0.8f, 0.0f,  1.0f, 1.0f, 1.0f,
+				 0.95f, -0.8f, 0.0f,  1.0f, 1.0f, 1.0f,
+				 0.95f, -0.95f, 0.0f,  1.0f, 1.0f, 1.0f,
+				 0.8f, -0.95f, 0.0f,  1.0f, 1.0f, 1.0f,
+			};
 
 
-	//================================================================================================================//
+			GLuint indices[] = {
+				0, 1, 2,
+				0, 2, 3
+			};
 
-	GLfloat vertices[] = {
+			GLfloat clearVertices[] = {
 
-		 0.8f, -0.8f, 0.0f,  1.0f, 1.0f, 1.0f,
-		 0.95f, -0.8f, 0.0f,  1.0f, 1.0f, 1.0f,
-		 0.95f, -0.95f, 0.0f,  1.0f, 1.0f, 1.0f,
-		 0.8f, -0.95f, 0.0f,  1.0f, 1.0f, 1.0f,
-	};
+				 0.8f, 0.8f, 0.0f,  1.0f, 1.0f, 1.0f,
+				 0.95f, 0.8f, 0.0f,  1.0f, 1.0f, 1.0f,
+				 0.95f, 0.95f, 0.0f,  1.0f, 1.0f, 1.0f,
+				 0.8f, 0.95f, 0.0f,  1.0f, 1.0f, 1.0f,
+			};
 
+			GLuint clearIndices[] = {
+				0, 1, 2,
+				0, 2, 3
+			};
 
-	GLuint indices[] = {
-		0, 1, 2,
-		0, 2, 3
-	};
+			GLfloat showVertices[] = {
+				 0.8f, 0.6f, 0.0f,  1.0f, 1.0f, 1.0f,
+				 0.95f, 0.6f, 0.0f,  1.0f, 1.0f, 1.0f,
+				 0.95f, 0.75f, 0.0f,  1.0f, 1.0f, 1.0f,
+				 0.8f, 0.75f, 0.0f,  1.0f, 1.0f, 1.0f,
+			};
 
-	GLfloat clearVertices[] = {
+			GLuint showIndices[] = {
+				0, 1, 2,
+				0, 2, 3
+			};
 
-		 0.8f, 0.8f, 0.0f,  1.0f, 1.0f, 1.0f,
-		 0.95f, 0.8f, 0.0f,  1.0f, 1.0f, 1.0f,
-		 0.95f, 0.95f, 0.0f,  1.0f, 1.0f, 1.0f,
-		 0.8f, 0.95f, 0.0f,  1.0f, 1.0f, 1.0f,
-	};
-
-	GLuint clearIndices[] = {
-		0, 1, 2,
-		0, 2, 3
-	};
-
-	GLfloat showVertices[] = {
-		 0.8f, 0.6f, 0.0f,  1.0f, 1.0f, 1.0f,
-		 0.95f, 0.6f, 0.0f,  1.0f, 1.0f, 1.0f,
-		 0.95f, 0.75f, 0.0f,  1.0f, 1.0f, 1.0f,
-		 0.8f, 0.75f, 0.0f,  1.0f, 1.0f, 1.0f,
-	};
-
-	GLuint showIndices[] = {
-		0, 1, 2,
-		0, 2, 3
-	};
-
-	// VAO, VBO, EBO 설정
-	GLuint VAO, VBO, EBO;
-	glGenVertexArrays(1, &VAO);
-	glGenBuffers(1, &VBO);
-	glGenBuffers(1, &EBO);
-
-	glBindVertexArray(VAO);
-
-	glBindBuffer(GL_ARRAY_BUFFER, VBO);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
-	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
-
-	// position attribute
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)0);
-	glEnableVertexAttribArray(0);
-
-	// color attribute
-	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(3 * sizeof(float)));
-	glEnableVertexAttribArray(1);
-
-	//=========================================================================================================================//
-
-	GLuint VAO2, VBO2, EBO2;
-	glGenVertexArrays(1, &VAO2);
-	glGenBuffers(1, &VBO2);
-	glGenBuffers(1, &EBO2);
-
-	glBindVertexArray(VAO2);
-
-	glBindBuffer(GL_ARRAY_BUFFER, VBO2);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(clearVertices), clearVertices, GL_STATIC_DRAW);
-
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO2);
-	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(clearIndices), clearIndices, GL_STATIC_DRAW);
-
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)0);
-	glEnableVertexAttribArray(0);
-
-	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(3 * sizeof(float)));
-	glEnableVertexAttribArray(1);
-
-	glBindBuffer(GL_ARRAY_BUFFER, 0);
-	glBindVertexArray(0);
-
-	bool button = false;
-
-	//=========================================================================================================================//
-
-	GLuint VAO3, VBO3, EBO3;
-	glGenVertexArrays(1, &VAO3);
-	glGenBuffers(1, &VBO3);
-	glGenBuffers(1, &EBO3);
-
-	glBindVertexArray(VAO3);
-
-	glBindBuffer(GL_ARRAY_BUFFER, VBO3);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(showVertices), showVertices, GL_STATIC_DRAW);
-
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO3);
-	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(showIndices), showIndices, GL_STATIC_DRAW);
-
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)0);
-	glEnableVertexAttribArray(0);
-
-	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(3 * sizeof(float)));
-	glEnableVertexAttribArray(1);
-
-	glBindBuffer(GL_ARRAY_BUFFER, 0);
-	glBindVertexArray(0);
-
-
-	//=========================================================================================================================//
-	// RENDER LOOP
-	while (!window.shouldClose()) {
-		if (!rendering3D) {
-
-
-			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-			// Tell callbacks object a new frame's begun BEFORE polling events!
-			cb->incrementFrameCount();
-			glfwPollEvents();
+			// VAO, VBO, EBO 설정
+			GLuint VAO, VBO, EBO;
+			glGenVertexArrays(1, &VAO);
+			glGenBuffers(1, &VBO);
+			glGenBuffers(1, &EBO);
 
 			glBindVertexArray(VAO);
-			glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
-			glBindVertexArray(0);
+
+			glBindBuffer(GL_ARRAY_BUFFER, VBO);
+			glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+
+			glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
+			glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
+
+			// position attribute
+			glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)0);
+			glEnableVertexAttribArray(0);
+
+			// color attribute
+			glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(3 * sizeof(float)));
+			glEnableVertexAttribArray(1);
+
+			//=========================================================================================================================//
+
+			GLuint VAO2, VBO2, EBO2;
+			glGenVertexArrays(1, &VAO2);
+			glGenBuffers(1, &VBO2);
+			glGenBuffers(1, &EBO2);
 
 			glBindVertexArray(VAO2);
-			glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+
+			glBindBuffer(GL_ARRAY_BUFFER, VBO2);
+			glBufferData(GL_ARRAY_BUFFER, sizeof(clearVertices), clearVertices, GL_STATIC_DRAW);
+
+			glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO2);
+			glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(clearIndices), clearIndices, GL_STATIC_DRAW);
+
+			glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)0);
+			glEnableVertexAttribArray(0);
+
+			glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(3 * sizeof(float)));
+			glEnableVertexAttribArray(1);
+
+			glBindBuffer(GL_ARRAY_BUFFER, 0);
 			glBindVertexArray(0);
-			/*
 
-			// If mouse just went down, see if it was on a point.
-			if (cb->leftMouseJustPressed() || cb->rightMouseJustPressed()) {
-				// We use the point DIAMETER as the threshold, meaning the user
-				// can click anywhere within 2x radius to select.
-				// You may want to change that.
-				float threshold = pointSize;
+			bool button = false;
 
-				selectedPointIndex = cb->indexOfPointAtCursorPos(cpuGeom.verts, threshold);
-			}
+			//=========================================================================================================================//
 
-			*/
+			GLuint VAO3, VBO3, EBO3;
+			glGenVertexArrays(1, &VAO3);
+			glGenBuffers(1, &VBO3);
+			glGenBuffers(1, &EBO3);
 
-			// when the left button gets pressed increase the cross_section
-			if (cb->leftMouseJustPressed()) {
-				std::cout << "Position: " << glm::vec3(cb->getCursorPosGL(), 0.f) << std::endl;
-				if (cross_section == 0 && Eulerian_Trail < 2) {
-					Eulerian_Trail++;
+			glBindVertexArray(VAO3);
+
+			glBindBuffer(GL_ARRAY_BUFFER, VBO3);
+			glBufferData(GL_ARRAY_BUFFER, sizeof(showVertices), showVertices, GL_STATIC_DRAW);
+
+			glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO3);
+			glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(showIndices), showIndices, GL_STATIC_DRAW);
+
+			glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)0);
+			glEnableVertexAttribArray(0);
+
+			glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(3 * sizeof(float)));
+			glEnableVertexAttribArray(1);
+
+			glBindBuffer(GL_ARRAY_BUFFER, 0);
+			glBindVertexArray(0);
+
+
+			//=========================================================================================================================//
+			// RENDER LOOP
+			while (!window.shouldClose() && !rendering3D) {
+
+
+				glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+				// Tell callbacks object a new frame's begun BEFORE polling events!
+				cb->incrementFrameCount();
+				glfwPollEvents();
+
+				glBindVertexArray(VAO);
+				glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+				glBindVertexArray(0);
+
+				glBindVertexArray(VAO2);
+				glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+				glBindVertexArray(0);
+				/*
+
+				// If mouse just went down, see if it was on a point.
+				if (cb->leftMouseJustPressed() || cb->rightMouseJustPressed()) {
+					// We use the point DIAMETER as the threshold, meaning the user
+					// can click anywhere within 2x radius to select.
+					// You may want to change that.
+					float threshold = pointSize;
+
+					selectedPointIndex = cb->indexOfPointAtCursorPos(cpuGeom.verts, threshold);
 				}
 
-				if (cross_section == 1 && Eulerian_Trail < 4) {
-					Eulerian_Trail++;
-				}
+				*/
 
-				if (cross_section == 2 && Eulerian_Trail < 6) {
-					Eulerian_Trail++;
-				}
-
-				if (cb->getCursorPosGL().x >= 0.8f && cb->getCursorPosGL().x <= 0.95f && cb->getCursorPosGL().y <= -0.8f && cb->getCursorPosGL().y >= -0.95f) {
-					button = true;
-					if (cross_section < 5) cross_section++;
-
-
-
-				}
-
-				if (cb->getCursorPosGL().x >= 0.8f && cb->getCursorPosGL().x <= 0.95f && cb->getCursorPosGL().y >= 0.8f && cb->getCursorPosGL().y <= 0.95f) {
-					printf("clear");
-					clear = true;
-
-
-				}
-
-
-			}
-
-
-			if (cb->rightMouseJustPressed()) {
-
-				showDraw = !showDraw;
-				//std::cout << "Show draw: " << showDraw << std::endl;
-			}
-
-			/*
-			else if (cb->rightMouseJustPressed()) {
-				if (selectedPointIndex >= 0) {
-					// If we right-clicked on a vertex, erase it.
-					controlPointcpu.verts.erase(controlPointcpu.verts.begin() + selectedPointIndex);
-					controlPointcpu.cols.erase(controlPointcpu.cols.begin() + selectedPointIndex);
-					selectedPointIndex = -1; // So that we don't drag in next frame.
-
-					controlPointgpu.setVerts(controlPointcpu.verts);
-					controlPointgpu.setCols(controlPointcpu.cols);
-				}
-			}
-
-			else if (cb->leftMouseActive() && selectedPointIndex >= 0) {
-				// Drag selected point.
-				cpuGeom.verts[selectedPointIndex] = glm::vec3(cb->getCursorPosGL(), 0.f);
-				gpuGeom.setVerts(cpuGeom.verts);
-
-			}
-			*/
-
-
-			bool change = false; // Whether any ImGui variable's changed.
-
-			// Three functions that must be called each new frame.
-			ImGui_ImplOpenGL3_NewFrame();
-			ImGui_ImplGlfw_NewFrame();
-			ImGui::NewFrame();
-
-			ImGui::Begin("Sample window.");
-
-			ImGui::Text("Sample text.");
-
-			change |= ImGui::SliderFloat("Point size", &pointSize, 1.f, 20.f);
-
-			change |= ImGui::ColorEdit3("New pt color", (float*)&color);
-
-			change |= ImGui::Checkbox("Draw lines", &drawLines);
-
-			change |= ImGui::Checkbox("Draw lines", &drawLines);
-
-			if (ImGui::Button("clear pts")) {
-				change = true;
-				lineVerts[0].clear();
-			}
-
-			ImGui::Text("Average %.1f ms/frame (%.1f fps)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
-
-			ImGui::End();
-			ImGui::Render();
-
-			shader.use();
-			gpuGeom.bind();
-
-			if (change)
-			{
-				//cb->updateShadingUniforms(lightPos, lightCol, diffuseCol, ambientStrength, texExistence);
-			}
-			cb->viewPipeline();
-
-			glPointSize(pointSize);
-
-			//glEnable(GL_FRAMEBUFFER_SRGB);
-			//glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-			// actual drawing happening here
-			/*
-			draw(
-				cb,
-				lineVerts, lineCpu,
-				controlPointVerts, controlPointCpu,
-				bsplineCurveVerts, bsplineCurveCpu,
-				transformedVerts,
-				gpuGeom,
-				cross_section);
-
-			*/
-			drawCommonElements(gpuGeom, lineCpu, grid.verts, grid.cols);
-			if (cross_section == 0) {
-
-				phaseFront(
-					cb,
-					lineVerts, lineCpu,
-					controlPointVerts, controlPointCpu,
-					transformedVerts,
-					gpuGeom,
-					cross_section);
-			}
-			else if (cross_section == 1) {
-				phaseSide(
-					cb,
-					lineVerts, lineCpu,
-					controlPointVerts, controlPointCpu,
-					transformedVerts,
-					gpuGeom,
-					cross_section);
-			}
-			else if (cross_section == 2) {
-				phaseTop(
-					cb,
-					lineVerts, lineCpu,
-					controlPointVerts, controlPointCpu,
-					transformedVerts,
-					gpuGeom,
-					cross_section);
-			}
-			else if (cross_section == 3) {
-				phaseCreateMesh(
-					cb,
-					lineVerts, lineCpu,
-					controlPointVerts, controlPointCpu,
-					transformedVerts,
-					gpuGeom,
-					cross_section);
-			}
-			else {
-				showCombined(cb,
-					lineVerts, lineCpu,
-					controlPointVerts, controlPointCpu,
-					transformedVerts,
-					gpuGeom,
-					cross_section);
-			}
-
-			if (showDraw) {
-				showDrew(cb,
-					lineVerts, lineCpu,
-					controlPointVerts, controlPointCpu,
-					transformedVerts,
-					gpuGeom,
-					cross_section);
-			}
-
-			glDisable(GL_FRAMEBUFFER_SRGB); // disable sRGB for things like imgui
-
-			ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
-
-			window.swapBuffers();
-		}
-		else if (rendering3D) {
-
-			glfwPollEvents();
-
-
-			// Three functions that must be called each new frame.
-			ImGui_ImplOpenGL3_NewFrame();
-			ImGui_ImplGlfw_NewFrame();
-			ImGui::NewFrame();
-
-			ImGui::Begin("Sample window.");
-
-			bool change = false; // Whether any ImGui variable's changed.
-
-			// A drop-down box for choosing the 3D model to render.
-			if (ImGui::BeginCombo("Model", selectedModelName.c_str()))
-			{
-				// Iterate over our dictionary's key-val pairs.
-				for (auto& keyVal : models) {
-					// Check if this key (a model display name) was last selected.
-					const bool isSelected = (selectedModelName == keyVal.first);
-
-					// Now check if the user is currently selecting that model.
-					// The use of "isSelected" just changes the colour of the box.
-					if (ImGui::Selectable(keyVal.first.c_str(), isSelected))
-					{
-						selectedModelName = keyVal.first;
-						keyVal.second.bind(); // Bind the selected model.
+				// when the left button gets pressed increase the cross_section
+				if (cb->leftMouseJustPressed()) {
+					std::cout << "Position: " << glm::vec3(cb->getCursorPosGL(), 0.f) << std::endl;
+					if (cross_section == 0 && Eulerian_Trail < 2) {
+						Eulerian_Trail++;
 					}
-					// Sets the initial focus when the combo is opened
-					if (isSelected) ImGui::SetItemDefaultFocus();
+
+					if (cross_section == 1 && Eulerian_Trail < 4) {
+						Eulerian_Trail++;
+					}
+
+					if (cross_section == 2 && Eulerian_Trail < 6) {
+						Eulerian_Trail++;
+					}
+
+					if (cb->getCursorPosGL().x >= 0.8f && cb->getCursorPosGL().x <= 0.95f && cb->getCursorPosGL().y <= -0.8f && cb->getCursorPosGL().y >= -0.95f) {
+						button = true;
+						if (cross_section < 5) cross_section++;
+
+
+
+					}
+
+					if (cb->getCursorPosGL().x >= 0.8f && cb->getCursorPosGL().x <= 0.95f && cb->getCursorPosGL().y >= 0.8f && cb->getCursorPosGL().y <= 0.95f) {
+						printf("clear");
+						clear = true;
+
+
+					}
+
+
 				}
-				ImGui::EndCombo();
-				change = true;
-			}
 
-			// Only display the texture dropdown if applicable.
-			if (models.at(selectedModelName).hasUVs())
-			{
-				// A drop-down box for choosing the texture to use.
-				if (ImGui::BeginCombo("Texture", selectedTexName.c_str()))
-				{
-					// First, display an option to select NO texture!
-					const bool noneSelected = selectedTexName == noTexName;
-					if (ImGui::Selectable(noTexName.c_str(), noneSelected))
-					{
-						selectedTexName = noTexName;
-					}
-					if (noneSelected) ImGui::SetItemDefaultFocus();
 
-					// Then, present our dictionary's contents as other texture options.
-					for (auto& keyVal : textures) {
-						// Check if this key (a model display name) was last selected.
-						const bool isSelected = (selectedTexName == keyVal.first);
-						// Now check if the user is currently selecting that texture.
-						// The use of "isSelected" just changes the colour of the box.
-						if (ImGui::Selectable(keyVal.first.c_str(), isSelected))
-						{
-							selectedTexName = keyVal.first;
-							keyVal.second.bind(); // Bind the selected texture.
-						}
-						// Sets the initial focus when the combo is opened
-						if (isSelected) ImGui::SetItemDefaultFocus();
+				if (cb->rightMouseJustPressed()) {
+
+					showDraw = !showDraw;
+					//std::cout << "Show draw: " << showDraw << std::endl;
+				}
+
+				/*
+				else if (cb->rightMouseJustPressed()) {
+					if (selectedPointIndex >= 0) {
+						// If we right-clicked on a vertex, erase it.
+						controlPointcpu.verts.erase(controlPointcpu.verts.begin() + selectedPointIndex);
+						controlPointcpu.cols.erase(controlPointcpu.cols.begin() + selectedPointIndex);
+						selectedPointIndex = -1; // So that we don't drag in next frame.
+
+						controlPointgpu.setVerts(controlPointcpu.verts);
+						controlPointgpu.setCols(controlPointcpu.cols);
 					}
-					ImGui::EndCombo();
+				}
+
+				else if (cb->leftMouseActive() && selectedPointIndex >= 0) {
+					// Drag selected point.
+					cpuGeom.verts[selectedPointIndex] = glm::vec3(cb->getCursorPosGL(), 0.f);
+					gpuGeom.setVerts(cpuGeom.verts);
+
+				}
+				*/
+
+
+				bool change = false; // Whether any ImGui variable's changed.
+
+				// Three functions that must be called each new frame.
+				ImGui_ImplOpenGL3_NewFrame();
+				ImGui_ImplGlfw_NewFrame();
+				ImGui::NewFrame();
+
+				ImGui::Begin("Sample window.");
+
+				ImGui::Text("Sample text.");
+
+				change |= ImGui::SliderFloat("Point size", &pointSize, 1.f, 20.f);
+
+				change |= ImGui::ColorEdit3("New pt color", (float*)&color);
+
+				change |= ImGui::Checkbox("Draw lines", &drawLines);
+
+				change |= ImGui::Checkbox("Draw lines", &drawLines);
+
+				if (ImGui::Button("clear pts")) {
 					change = true;
+					lineVerts[0].clear();
 				}
+
+				ImGui::Text("Average %.1f ms/frame (%.1f fps)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
+
+				ImGui::End();
+				ImGui::Render();
+
+				shader.use();
+				gpuGeom.bind();
+
+				if (change)
+				{
+					//cb->updateShadingUniforms(lightPos, lightCol, diffuseCol, ambientStrength, texExistence);
+				}
+				cb->viewPipeline();
+
+				glPointSize(pointSize);
+
+				//glEnable(GL_FRAMEBUFFER_SRGB);
+				//glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+				// actual drawing happening here
+				/*
+				draw(
+					cb,
+					lineVerts, lineCpu,
+					controlPointVerts, controlPointCpu,
+					bsplineCurveVerts, bsplineCurveCpu,
+					transformedVerts,
+					gpuGeom,
+					cross_section);
+
+				*/
+				drawCommonElements(gpuGeom, lineCpu, grid.verts, grid.cols);
+				if (cross_section == 0) {
+
+					phaseFront(
+						cb,
+						lineVerts, lineCpu,
+						controlPointVerts, controlPointCpu,
+						transformedVerts,
+						gpuGeom,
+						cross_section);
+				}
+				else if (cross_section == 1) {
+					phaseSide(
+						cb,
+						lineVerts, lineCpu,
+						controlPointVerts, controlPointCpu,
+						transformedVerts,
+						gpuGeom,
+						cross_section);
+				}
+				else if (cross_section == 2) {
+					phaseTop(
+						cb,
+						lineVerts, lineCpu,
+						controlPointVerts, controlPointCpu,
+						transformedVerts,
+						gpuGeom,
+						cross_section);
+				}
+				else if (cross_section == 3) {
+					phaseCreateMesh(
+						cb,
+						lineVerts, lineCpu,
+						controlPointVerts, controlPointCpu,
+						transformedVerts,
+						gpuGeom,
+						cross_section);
+				}
+				else if (cross_section == 4) {
+					showCombined(cb,
+						lineVerts, lineCpu,
+						controlPointVerts, controlPointCpu,
+						transformedVerts,
+						gpuGeom,
+						cross_section);
+				}
+				else if (cross_section == 5) {
+					rendering3D = true;
+				}
+
+				if (showDraw) {
+					showDrew(cb,
+						lineVerts, lineCpu,
+						controlPointVerts, controlPointCpu,
+						transformedVerts,
+						gpuGeom,
+						cross_section);
+				}
+
+				glDisable(GL_FRAMEBUFFER_SRGB); // disable sRGB for things like imgui
+
+				ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+
+				window.swapBuffers();
+
+
 			}
-
-			// We'll only render with a texture if the model has UVs and a texture was chosen.
-			texExistence = (models.at(selectedModelName).hasUVs() && selectedTexName != noTexName);
-
-			// If a texture is not in use, the user can pick the diffuse colour.
-			if (!texExistence) change |= ImGui::ColorEdit3("Diffuse colour", glm::value_ptr(diffuseCol));
-
-			// The rest of our ImGui widgets.
-			change |= ImGui::DragFloat3("Light's position", glm::value_ptr(lightPos));
-			change |= ImGui::ColorEdit3("Light's colour", glm::value_ptr(lightCol));
-			change |= ImGui::SliderFloat("Ambient strength", &ambientStrength, 0.0f, 1.f);
-			change |= ImGui::Checkbox("Simple wireframe", &simpleWireframe);
-
-			// Framerate display, in case you need to debug performance.
-			ImGui::Text("Average %.1f ms/frame (%.1f fps)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
-			ImGui::End();
-			ImGui::Render();
-
-			glEnable(GL_LINE_SMOOTH);
-			glEnable(GL_FRAMEBUFFER_SRGB);
-			glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
-			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-			glEnable(GL_DEPTH_TEST);
-			glPolygonMode(GL_FRONT_AND_BACK, (simpleWireframe ? GL_LINE : GL_FILL));
-
-			shader3D.use();
-			if (change)
-			{
-				// If any of our shading values was updated, we need to update the
-				// respective GLSL uniforms.
-				db->updateShadingUniforms(lightPos, lightCol, diffuseCol, ambientStrength, texExistence);
-			}
-			db->viewPipeline();
-
-			glDrawArrays(GL_TRIANGLES, 0, GLsizei(models.at(selectedModelName).numVerts()));
-
-			glDisable(GL_FRAMEBUFFER_SRGB); // disable sRGB for things like imgui
-
-			ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
-
-			window.swapBuffers();
 		}
-	}
 
+
+	}
 	// Cleanup
 	ImGui_ImplOpenGL3_Shutdown();
 	ImGui_ImplGlfw_Shutdown();
@@ -2521,7 +2353,6 @@ int main() {
 
 	glfwTerminate();
 	return 0;
-}
 
 
 }

@@ -109,7 +109,7 @@ foreach(file ${files})
 	configure_file(${file} shaders/${name})
 endforeach()
 
-add_executable(${APP_NAME} ${SOURCES} "589-689-skeleton/Camera.cpp" "589-689-skeleton/Camera.h"   "589-689-skeleton/GeomLoaderForOBJ.cpp" "589-689-skeleton/GeomLoaderForOBJ.h" "589-689-skeleton/Texture.cpp" "589-689-skeleton/Texture.h")
+add_executable(${APP_NAME} ${SOURCES} "589-689-skeleton/Camera.cpp" "589-689-skeleton/Camera.h"   "589-689-skeleton/GeomLoaderForOBJ.cpp" "589-689-skeleton/GeomLoaderForOBJ.h" "589-689-skeleton/Texture.cpp" "589-689-skeleton/Texture.h" "589-689-skeleton/Geometry3D.cpp" "589-689-skeleton/Geometry3D.h")
 target_include_directories(${APP_NAME} PRIVATE ${INCLUDES})
 target_link_libraries(${APP_NAME} ${LIBRARIES})
 target_compile_definitions(${APP_NAME} PRIVATE ${DEFINITIONS})

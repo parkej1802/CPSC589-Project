@@ -7,8 +7,9 @@
 
 #include <string>
 
-#include "Geometry.h"
+#include "Geometry3D.h"
 
 namespace GeomLoaderForOBJ {
-	CPU_Geometry loadIntoCPUGeometry(std::string filename);
+	//CPU_Geometry loadIntoCPUGeometry(std::string filename);
+	CPU_Geometry3D loadIntoCPUGeometry(std::string filename);
 };

@@ -7,8 +7,8 @@
 #include "tiny_obj_loader.h"
 
 // Most of this function is just boilerplate from tinyobjloader's GitHub README.
-CPU_Geometry GeomLoaderForOBJ::loadIntoCPUGeometry(std::string filename) {
-	CPU_Geometry geom;
+CPU_Geometry3D GeomLoaderForOBJ::loadIntoCPUGeometry(std::string filename) {
+	CPU_Geometry3D geom;
 
 	tinyobj::attrib_t attrib;
 	std::vector<tinyobj::shape_t> shapes;
@@ -85,3 +85,4 @@ CPU_Geometry GeomLoaderForOBJ::loadIntoCPUGeometry(std::string filename) {
 	}
 	return geom;
 }
+

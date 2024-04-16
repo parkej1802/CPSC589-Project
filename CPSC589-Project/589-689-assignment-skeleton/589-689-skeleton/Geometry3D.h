@@ -16,24 +16,28 @@
 
 
 // List of vertices and colour using std::vector and glm::vec3
-struct CPU_Geometry {
+struct CPU_Geometry3D {
 	std::vector<glm::vec3> verts;
+
+	std::vector<glm::vec2> uvs;
+	std::vector<glm::vec3> normals;
 	std::vector<glm::vec3> cols;
 };
 
 
 // VAO and two VBOs for storing vertices and colours, respectively
-class GPU_Geometry {
+class GPU_Geometry3D {
 
 public:
-	GPU_Geometry();
+	GPU_Geometry3D();
 
 	// Public interface
 	void bind() { vao.bind(); }
 
 	void setVerts(const std::vector<glm::vec3>& verts);
 	void setCols(const std::vector<glm::vec3>& cols);
-
+	void setUVs(const std::vector<glm::vec2>& uvs);
+	void setNormals(const std::vector<glm::vec3>& norms);
 
 private:
 	// note: due to how OpenGL works, vao needs to be 
@@ -42,7 +46,8 @@ private:
 
 	VertexBuffer vertBuffer;
 	VertexBuffer colBuffer;
-
+	VertexBuffer uvBuffer;
+	VertexBuffer normalsBuffer;
 };
 
 
