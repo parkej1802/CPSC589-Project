@@ -725,6 +725,7 @@ bool isCounterClockwise(const std::vector<glm::vec3>& controlPoints) {
 	return sum > 0;
 }
 
+/*
 void connectPlanarMeshes(Mesh& frontMesh, Mesh& backMesh, const std::vector<glm::vec3>& controlPoints) {
 	int frontVerticesCount = frontMesh.vertices.size();
 
@@ -799,6 +800,74 @@ void connectPlanarMeshes(Mesh& frontMesh, Mesh& backMesh, const std::vector<glm:
 			frontMesh.triangles.push_back({ frontIndexA + 1, frontIndexB + 1, backIndexA + 1 });
 			frontMesh.triangles.push_back({ frontIndexB + 1, backIndexB + 1, backIndexA + 1 });
 		}
+	}
+
+	frontMesh.normals = calculateVertexNormals(frontMesh);
+}
+*/
+void generate3dMesh(Mesh& frontMesh, const std::vector<int> controlPoints) {
+	int frontVerticesCount = frontMesh.vertices.size();
+	std::vector<glm::vec3> points;
+
+	for (auto& p : controlPoints) {
+		glm::vec3 temp = frontMesh.vertices[p - 1];
+		points.push_back(temp);
+	}
+
+	// generate back mesh
+	Mesh backMesh = frontMesh;
+	for (auto& triangle : backMesh.triangles) {
+		int v1 = triangle[0];
+		int v2 = triangle[1];
+		int v3 = triangle[2];
+
+		std::vector<int> newTriangle = { v3, v2, v1 };
+		triangle = newTriangle;
+	}
+
+	for (auto& vert : frontMesh.vertices) {
+		vert.z = 0.1;
+	}
+
+	for (auto& vert : backMesh.vertices) {
+		vert.z = -0.1;
+	}
+
+	frontMesh.vertices.insert(frontMesh.vertices.end(), backMesh.vertices.begin(), backMesh.vertices.end());
+	frontMesh.normals.insert(frontMesh.normals.end(), backMesh.normals.begin(), backMesh.normals.end());
+
+	for (const auto& triangle : backMesh.triangles) {
+		std::vector<int> newTriangle = { triangle[0] + frontVerticesCount, triangle[1] + frontVerticesCount, triangle[2] + frontVerticesCount };
+		frontMesh.triangles.push_back(newTriangle);
+	}
+
+	int frontA;
+	int frontB;
+	int backA;
+	int backB;
+	for (int i = 0; i < controlPoints.size(); i++) {
+		if (i < controlPoints.size()-1) {
+			frontA = controlPoints[i];
+			frontB = controlPoints[i + 1];
+			backA = frontA + frontVerticesCount;
+			backB = frontB + frontVerticesCount;
+		}
+		else {
+			frontA = controlPoints[i];
+			frontB = controlPoints[0];
+			backA = frontA + frontVerticesCount;
+			backB = frontB + frontVerticesCount;
+		}
+
+		if (isCounterClockwise(points)) {
+			frontMesh.triangles.push_back({ frontA, backA, frontB });
+			frontMesh.triangles.push_back({ frontB, backA, backB });
+		}
+		else {
+			frontMesh.triangles.push_back({ frontA, frontB, backA });
+			frontMesh.triangles.push_back({ frontB, backB, backA });
+		}
+		
 	}
 
 	frontMesh.normals = calculateVertexNormals(frontMesh);
@@ -1517,6 +1586,54 @@ void laplacian(Mesh& mesh) {
 	mesh = HalfEdgeToMesh(heMesh);
 }
 
+std::pair<int, int> make_ordered_edge(int v1, int v2) {
+	return v1 < v2 ? std::make_pair(v1, v2) : std::make_pair(v2, v1);
+}
+std::vector<int> boundary_vertices(Mesh& mesh) {
+	std::unordered_map<std::pair<int, int>, int, EdgeKeyHash> edgeCount;
+	std::unordered_map<int, std::vector<int>> adjacencyList;
+	std::vector<int> result;
+
+	// count edge
+	for (auto& triangle : mesh.triangles) {
+		for (int i = 0; i < triangle.size(); ++i) {
+			auto edge = make_ordered_edge(triangle[i], triangle[(i + 1) % triangle.size()]);
+			edgeCount[edge]++;
+		}
+	}
+
+	for (const auto& item : edgeCount) {
+		if (item.second == 1) { // 바운더리 엣지
+			adjacencyList[item.first.first].push_back(item.first.second);
+			adjacencyList[item.first.second].push_back(item.first.first);
+		}
+	}
+
+	// 바운더리 정점 순서대로 추출
+	if (!adjacencyList.empty()) {
+		std::unordered_set<int> visited;
+		int start = adjacencyList.begin()->first;
+		int current = start;
+		int previous = -1;
+		do {
+			result.push_back(current);
+			visited.insert(current);
+			bool foundNext = false;
+			for (int next : adjacencyList[current]) {
+				if (next != previous && visited.find(next) == visited.end()) {
+					previous = current;
+					current = next;
+					foundNext = true;
+					break;
+				}
+			}
+			if (!foundNext) break; // 중단 조건 추가
+		} while (current != start);
+	}
+
+	return result;
+}
+
 void drawCommonElements(
 	GPU_Geometry& gpuGeom,
 	CPU_Geometry& lineCpu,
@@ -1530,7 +1647,6 @@ void drawCommonElements(
 	glDrawArrays(GL_LINE_STRIP, 2, GLsizei(2));
 
 }
-
 
 int Eulerian_Trail = 0;
 
@@ -1680,31 +1796,33 @@ void phaseCreateMesh(std::shared_ptr<MyCallbacks>& cb,
 
 	// generating 3D model starts here
 	Mesh front_mesh = get_front_mesh(cdt);
-	//fake_loopSubdivision(front_mesh);
+	fake_loopSubdivision(front_mesh);
+	fake_loopSubdivision(front_mesh);
 	//front_inflation_side(front_mesh, transformedVerts[1]);
 	//front_inflation_top(front_mesh, transformedVerts[2]);
 	//front_mesh.normals = calculateVertexNormals(front_mesh);
 
-	Mesh back_mesh = get_back_mesh(cdt);
+	auto boundary = boundary_vertices(front_mesh);
+	generate3dMesh(front_mesh, boundary);
+
+	//Mesh back_mesh = get_back_mesh(cdt);
 	//fake_loopSubdivision(back_mesh);
 	//back_inflation_side(back_mesh, transformedVerts[1]);
 	//back_inflation_top(back_mesh, transformedVerts[2]);
 	//back_mesh.normals = calculateVertexNormals(back_mesh);
 
-	connectPlanarMeshes(front_mesh, back_mesh, controlPointVerts[0]);
-	fake_loopSubdivision(front_mesh);
+	//connectPlanarMeshes(front_mesh, back_mesh, controlPointVerts[0]);
+	//fake_loopSubdivision(front_mesh);
 
-	inflate_front_back(front_mesh, transformedVerts[1], transformedVerts[2]);
+	//inflate_front_back(front_mesh, transformedVerts[1], transformedVerts[2]);
 	//laplacian(front_mesh);
 	//loopSubdivision(front_mesh, false);
-
-
+	
 	for (int i = 0; i < 5; i++) {
 		inflate_front_back(front_mesh, transformedVerts[1], transformedVerts[2]);
 		loopSubdivision(front_mesh, false);
 		//laplacian(front_mesh);
 	}
-
 
 	//fake_loopSubdivision(front_mesh);
 	//loopSubdivision(front_mesh, true);
@@ -1731,6 +1849,7 @@ void phaseCreateMesh(std::shared_ptr<MyCallbacks>& cb,
 	//inflation_top(front_mesh, transformedVerts[2]);
 	saveMeshToOBJ(front_mesh, "C:/Users/dhktj/OneDrive/Desktop/after.obj");
 	//saveMeshToOBJ(front_mesh, "C:/Users/U/Documents/ImaginationModeling/589-689-3D-skeleton/models/merged.obj");
+	
 
 	CDT::extractEdgesFromTriangles(cdt.triangles);
 }
