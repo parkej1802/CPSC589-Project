@@ -148,7 +148,7 @@ public:
 		// If we click the mouse on the ImGui window, we don't want to log that
 		// here. But if we RELEASE the mouse over the window, we do want to
 		// know that!
-		
+
 		auto& io = ImGui::GetIO();
 		if (io.WantCaptureMouse && action == GLFW_PRESS) return;
 
@@ -157,11 +157,11 @@ public:
 			leftMouseActiveVal = true;
 			lastLeftPressedFrame = currentFrame;
 		}
-		
+
 		if (button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_PRESS) {
 			lastRightPressedFrame = currentFrame;
 		}
-		
+
 
 		if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_RELEASE) {
 			leftMouseActiveVal = false;
@@ -184,7 +184,7 @@ public:
 
 	// Sets the new cursor position, in screen coordinates
 	virtual void cursorPosCallback(double xpos, double ypos) {
-		if (rightMouseDown) { 
+		if (rightMouseDown) {
 			float xoffset = xpos - screenMouseX;
 			float yoffset = ypos - screenMouseY;
 
@@ -235,7 +235,7 @@ public:
 		currentFrame++;
 	}
 
-	float getXAngle(){
+	float getXAngle() {
 		return x_angle;
 	}
 
@@ -341,7 +341,7 @@ private:
 
 bool operator==(const glm::vec3& a, const glm::vec3& b) {
 	return a.x == b.x && a.y == b.y && a.z == b.z;
-		
+
 }
 
 // get control points of a line user provided
@@ -352,7 +352,7 @@ std::vector<glm::vec3> get_control_points(std::vector<glm::vec3>& line, int smoo
 	int index = 0;
 
 	if (!line.empty()) {
-		result.push_back(line[0]); 
+		result.push_back(line[0]);
 	}
 
 	for (int index = step_size; index < line.size(); index += step_size) {
@@ -369,7 +369,7 @@ std::vector<glm::vec3> get_control_points(std::vector<glm::vec3>& line, int smoo
 
 
 // flatten all line vectors to one vector
-std::vector<glm::vec3> flattenLineVerts(std::vector<std::vector<glm::vec3>> &lineVerts) {
+std::vector<glm::vec3> flattenLineVerts(std::vector<std::vector<glm::vec3>>& lineVerts) {
 	std::vector<glm::vec3> flattenedVerts;
 
 	for (const auto& vertGroup : lineVerts) {
@@ -435,27 +435,27 @@ void transform(
 void combine(
 	std::shared_ptr<MyCallbacks>& cb,
 	std::vector<std::vector<glm::vec3>>& lineVerts,
-	CPU_Geometry& cpuGeom){
+	CPU_Geometry& cpuGeom) {
 
 	cpuGeom.verts.clear();
 	cpuGeom.cols.clear();
 
 	float x_angle = cb->getXAngle();
 	glm::mat3 X_R = glm::mat3(cos(x_angle), 0, sin(x_angle),
-							  0, 1, 0,
-							  -sin(x_angle), 0, cos(x_angle));
+		0, 1, 0,
+		-sin(x_angle), 0, cos(x_angle));
 
 	float y_angle = cb->getYAngle();
 	glm::mat3 Y_R = glm::mat3(1, 0, 0,
-							  0, cos(y_angle), -sin(y_angle),
-							  0, sin(y_angle), cos(y_angle));
+		0, cos(y_angle), -sin(y_angle),
+		0, sin(y_angle), cos(y_angle));
 
 	cpuGeom.verts = flattenLineVerts(lineVerts);
 	for (auto& vert : cpuGeom.verts) {
 		vert = vert * X_R;
 		vert = vert * Y_R;
 	}
-	
+
 	for (int i = 0; i < 3; i++) {
 		for (int j = 0; j < lineVerts[i].size(); j++) {
 			if (i == 0) {
@@ -581,7 +581,7 @@ Mesh get_back_mesh(const CDT::Triangulation<double>& cdt) {
 void front_inflation_side(Mesh& mesh, const std::vector<glm::vec3>& controlPoints) {
 	std::vector<glm::vec3> filteredControlPoints;
 	std::copy_if(controlPoints.begin(), controlPoints.end(), std::back_inserter(filteredControlPoints),
-	[](const glm::vec3& cp) { return cp.z > 0; });
+		[](const glm::vec3& cp) { return cp.z > 0; });
 
 	if (filteredControlPoints.empty()) return;
 
@@ -744,8 +744,8 @@ void connectPlanarMeshes(Mesh& frontMesh, Mesh& backMesh, const std::vector<glm:
 		std::vector<int> newTriangle = { triangle[0] + frontVerticesCount, triangle[1] + frontVerticesCount, triangle[2] + frontVerticesCount };
 		frontMesh.triangles.push_back(newTriangle);
 	}
-	
-	
+
+
 	for (int i = 0; i < controlPoints.size(); i++) {
 		// Find vertices in frontMesh and backMesh that match controlPoints[i] and controlPoints[i+1]
 		int frontIndexA = -1, backIndexA = -1;
@@ -758,7 +758,7 @@ void connectPlanarMeshes(Mesh& frontMesh, Mesh& backMesh, const std::vector<glm:
 			}
 		}
 
-		
+
 		if (i < controlPoints.size() - 1) {
 			for (int j = 0; j < frontVerticesCount; j++) {
 				if (glm::vec2(frontMesh.vertices[j].x, frontMesh.vertices[j].y) == glm::vec2(controlPoints[i + 1].x, controlPoints[i + 1].y)) {
@@ -935,7 +935,7 @@ void inflation_side(Mesh& mesh, const std::vector<glm::vec3>& controlPoints) {
 				proposedChange.z = low.z + ratio * (high.z - low.z);
 			}
 		}
-		
+
 		// 기존 메쉬 정점들 중에서 proposedChange와 "충분히 가까운" 정점이 있는지 검사
 		bool isCloseVertexExist = std::any_of(mesh.vertices.begin(), mesh.vertices.end(),
 			[&](const glm::vec3& existingVert) {
@@ -946,7 +946,7 @@ void inflation_side(Mesh& mesh, const std::vector<glm::vec3>& controlPoints) {
 		if (!isCloseVertexExist) {
 			vert.z = proposedChange.z;
 		}
-		
+
 	}
 }
 
@@ -1070,7 +1070,7 @@ HalfEdgeMesh MeshToHalfEdge(Mesh& mesh) {
 		v.halfEdge = nullptr;
 		v.position = mesh.vertices[i];
 		v.normal = mesh.normals[i];
-		v.isNew = false;  
+		v.isNew = false;
 		heMesh.vertices.push_back(v);
 
 		Vertex* vertexPtr = &heMesh.vertices.back();
@@ -1078,7 +1078,7 @@ HalfEdgeMesh MeshToHalfEdge(Mesh& mesh) {
 	}
 
 	// setting the faces and halfedges
-	for (int i = 0; i < mesh.triangles.size();i++) {
+	for (int i = 0; i < mesh.triangles.size(); i++) {
 		Face newFace;
 		heMesh.faces.push_back(newFace);
 		Face* newFacePtr = &heMesh.faces.back();
@@ -1147,28 +1147,14 @@ HalfEdgeMesh MeshToHalfEdge(Mesh& mesh) {
 std::vector<Vertex*> getNeighbours(Vertex* vertex) {
 	std::vector<Vertex*> neighbours;
 
-	HalfEdge* startEdge = vertex->halfEdge;
+	HalfEdge* startEdge = vertex->halfEdge->pair;
 	HalfEdge* currentEdge = startEdge;
 
 	do {
-		// 현재 HalfEdge의 'next'가 가리키는 정점을 이웃으로 추가
-		if (currentEdge->next && currentEdge->next->vertex) {
-			neighbours.push_back(currentEdge->next->vertex);
-		}
+		neighbours.push_back(currentEdge->vertex);
+		currentEdge = currentEdge->next->pair;
 
-		// 짝(HalfEdge pair)을 통해 반대 방향으로 진행
-		currentEdge = currentEdge->pair;
-
-		// 다음 반복을 위해, 짝의 'next'를 현재 엣지로 설정
-		if (currentEdge) {
-			currentEdge = currentEdge->next;
-		}
-
-	} while (currentEdge && currentEdge != startEdge); // 시작점으로 돌아오거나, 짝이 없는 경우 종료
-
-	// 중복 제거를 위해 unordered_set을 사용할 수도 있습니다.
-	std::unordered_set<Vertex*> uniqueNeighbours(neighbours.begin(), neighbours.end());
-	neighbours.assign(uniqueNeighbours.begin(), uniqueNeighbours.end());
+	} while (currentEdge != startEdge);
 
 	return neighbours;
 }
@@ -1323,7 +1309,7 @@ void flipEdge(Edge* e) {
 
 	Face* f0 = StN->face;
 	Face* f1 = NtS->face;
-	
+
 	// Renaming
 	HalfEdge* WtE = StN;
 	HalfEdge* EtW = NtS;
@@ -1444,7 +1430,7 @@ void loopSubdivision(Mesh& mesh, bool faceSplit) {
 	for (Vertex& v : heMesh.vertices) {
 		v.isNew = false;
 	}
-	
+
 	// 2. Compute updated positions for all vertex - vertex positions and *store *
 	for (Vertex& vert : heMesh.vertices) {
 		auto neighbours = getNeighbours(&vert);
@@ -1494,14 +1480,14 @@ void loopSubdivision(Mesh& mesh, bool faceSplit) {
 	}
 
 	// 6. Finally, copy the new vertex positions (Vertex::newPosition) into the
-    // usual vertex positions (Vertex::position).
+	// usual vertex positions (Vertex::position).
 	for (Vertex& v : heMesh.vertices) {
 		v.position = v.newPosition;
 	}
-	
+
 	mesh = HalfEdgeToMesh(heMesh);
-	
-	
+
+
 }
 
 void laplacian(Mesh& mesh) {
@@ -1526,10 +1512,6 @@ void laplacian(Mesh& mesh) {
 		vert.position.x = m.x;
 		vert.position.y = m.y;
 		vert.position.z = m.z;
-
-		//vert.position.x = m.x - vert.position.x;
-		//vert.position.y = m.y - vert.position.y;
-		//vert.position.z = m.z - vert.position.z;
 	}
 
 	mesh = HalfEdgeToMesh(heMesh);
@@ -1698,30 +1680,31 @@ void phaseCreateMesh(std::shared_ptr<MyCallbacks>& cb,
 
 	// generating 3D model starts here
 	Mesh front_mesh = get_front_mesh(cdt);
-	fake_loopSubdivision(front_mesh);
+	//fake_loopSubdivision(front_mesh);
 	//front_inflation_side(front_mesh, transformedVerts[1]);
 	//front_inflation_top(front_mesh, transformedVerts[2]);
 	//front_mesh.normals = calculateVertexNormals(front_mesh);
 
 	Mesh back_mesh = get_back_mesh(cdt);
-	fake_loopSubdivision(back_mesh);
+	//fake_loopSubdivision(back_mesh);
 	//back_inflation_side(back_mesh, transformedVerts[1]);
 	//back_inflation_top(back_mesh, transformedVerts[2]);
 	//back_mesh.normals = calculateVertexNormals(back_mesh);
 
 	connectPlanarMeshes(front_mesh, back_mesh, controlPointVerts[0]);
-	//fake_loopSubdivision(front_mesh);
+	fake_loopSubdivision(front_mesh);
 
 	inflate_front_back(front_mesh, transformedVerts[1], transformedVerts[2]);
 	//laplacian(front_mesh);
 	//loopSubdivision(front_mesh, false);
-	/*
+
+
 	for (int i = 0; i < 5; i++) {
 		inflate_front_back(front_mesh, transformedVerts[1], transformedVerts[2]);
-		//loopSubdivision(front_mesh, false);
-		laplacian(front_mesh);
+		loopSubdivision(front_mesh, false);
+		//laplacian(front_mesh);
 	}
-	*/
+
 
 	//fake_loopSubdivision(front_mesh);
 	//loopSubdivision(front_mesh, true);
@@ -1749,11 +1732,7 @@ void phaseCreateMesh(std::shared_ptr<MyCallbacks>& cb,
 	saveMeshToOBJ(front_mesh, "C:/Users/dhktj/OneDrive/Desktop/after.obj");
 	//saveMeshToOBJ(front_mesh, "C:/Users/U/Documents/ImaginationModeling/589-689-3D-skeleton/models/merged.obj");
 
-	cdt.triangles;
-	cdt.vertices;
-	cdt.fixedEdges;
 	CDT::extractEdgesFromTriangles(cdt.triangles);
-
 }
 
 void showCombined(std::shared_ptr<MyCallbacks>& cb,
@@ -1818,8 +1797,8 @@ int main() {
 
 	GLfloat vertices[] = {
 
-		 0.8f, -0.8f, 0.0f,  1.0f, 1.0f, 1.0f, 
-		 0.95f, -0.8f, 0.0f,  1.0f, 1.0f, 1.0f, 
+		 0.8f, -0.8f, 0.0f,  1.0f, 1.0f, 1.0f,
+		 0.95f, -0.8f, 0.0f,  1.0f, 1.0f, 1.0f,
 		 0.95f, -0.95f, 0.0f,  1.0f, 1.0f, 1.0f,
 		 0.8f, -0.95f, 0.0f,  1.0f, 1.0f, 1.0f,
 	};
@@ -1972,26 +1951,26 @@ int main() {
 			if (cross_section == 2 && Eulerian_Trail < 6) {
 				Eulerian_Trail++;
 			}
-	
+
 			if (cb->getCursorPosGL().x >= 0.8f && cb->getCursorPosGL().x <= 0.95f && cb->getCursorPosGL().y <= -0.8f && cb->getCursorPosGL().y >= -0.95f) {
 				button = true;
 				if (cross_section < 5) cross_section++;
-				
-				
+
+
 
 			}
 
 			if (cb->getCursorPosGL().x >= 0.8f && cb->getCursorPosGL().x <= 0.95f && cb->getCursorPosGL().y >= 0.8f && cb->getCursorPosGL().y <= 0.95f) {
 				printf("clear");
 				clear = true;
-		
+
 
 			}
 
-			
+
 		}
 
-		
+
 		if (cb->rightMouseJustPressed()) {
 
 			showDraw = !showDraw;
@@ -2057,7 +2036,7 @@ int main() {
 			//cb->updateShadingUniforms(lightPos, lightCol, diffuseCol, ambientStrength, texExistence);
 		}
 		cb->viewPipeline();
-		
+
 		glPointSize(pointSize);
 
 		//glEnable(GL_FRAMEBUFFER_SRGB);
@@ -2104,7 +2083,7 @@ int main() {
 				gpuGeom,
 				cross_section);
 		}
-		else if (cross_section == 3) { 
+		else if (cross_section == 3) {
 			phaseCreateMesh(
 				cb,
 				lineVerts, lineCpu,
@@ -2130,7 +2109,7 @@ int main() {
 				gpuGeom,
 				cross_section);
 		}
-		
+
 		glDisable(GL_FRAMEBUFFER_SRGB); // disable sRGB for things like imgui
 
 		ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
