@@ -35,7 +35,7 @@ float PI = 3.14159265359;
 bool clear = false;
 bool drew = false;
 bool showDraw = false;
-bool rendering3D = false;
+bool rendering3D = true;
 bool quit = false;
 
 CPU_Geometry grid;
@@ -208,7 +208,7 @@ public:
 	}
 
 
-	Camera camera;
+Camera camera;
 private:
 	// Uniform locations do not, ordinarily, change between frames.
 	// However, we may need to update them if the shader is changed and recompiled.
@@ -305,6 +305,9 @@ public:
 			y_angle = 0.0f;
 			shader.recompile();
 			updateUniformLocations();
+		}
+		if (key == GLFW_KEY_X && action == GLFW_PRESS) {
+			quit = true;
 		}
 	}
 
@@ -1785,26 +1788,51 @@ void showCombined(std::shared_ptr<MyCallbacks>& cb,
 }
 
 
+
 int main() {
+	if (!glfwInit()) {
+		return -1;
+	}
+	Window window(800, 800, "CPSC 589/689"); // could set callbacks at construction if desired
+
+	GLDebug::enable();
+	ShaderProgram shader3D("shaders/3d.vert", "shaders/3d.frag");
+	ShaderProgram shader("shaders/test.vert", "shaders/test.frag");
+	auto db = std::make_shared<Callbacks3D>(shader3D, window.getWidth(), window.getHeight());
+	auto cb = std::make_shared<MyCallbacks>(shader, window.getWidth(), window.getHeight());
+
+	if (rendering3D) {
+		window.setCallbacks(db);
+	}
+	else {
+		window.setCallbacks(cb);
+
+	}
+	window.setupImGui();
 
 	while (!quit) {
 
-
 		if (rendering3D) {
+			
 			Log::debug("Starting main");
 
-			// WINDOW
-			glfwInit();
-			Window window(800, 800, "CPSC 589/689"); // could set callbacks at construction if desired
+			window.setCallbacks(db);
 
-			GLDebug::enable();
+			// WINDOW
+			//glfwInit();
+			//Window window(800, 800, "CPSC 589/689"); // could set callbacks at construction if desired
+
+			//GLDebug::enable();
 
 			// SHADERS
+			/*
 			ShaderProgram shader3D("shaders/3d.vert", "shaders/3d.frag");
 			auto cb = std::make_shared<Callbacks3D>(shader3D, window.getWidth(), window.getHeight());
 			window.setCallbacks(cb);
 
 			window.setupImGui();
+			*/
+
 			std::unordered_map<std::string, ModelInfo> models;
 			//models.emplace("wall", ModelInfo("./models/back.obj"));
 			//models.emplace("Cow", ModelInfo("./models/spot/spot_triangulated.obj"));
@@ -1844,11 +1872,11 @@ int main() {
 
 			// Set the initial, default values of the shading uniforms.
 			shader3D.use();
-			cb->updateShadingUniforms(lightPos, lightCol, diffuseCol, ambientStrength, texExistence);
+			db->updateShadingUniforms(lightPos, lightCol, diffuseCol, ambientStrength, texExistence);
 
 
 			// RENDER LOOP
-			while (!window.shouldClose()) {
+			while (!window.shouldClose() && !quit) {
 				glfwPollEvents();
 
 
@@ -1946,9 +1974,9 @@ int main() {
 				{
 					// If any of our shading values was updated, we need to update the
 					// respective GLSL uniforms.
-					cb->updateShadingUniforms(lightPos, lightCol, diffuseCol, ambientStrength, texExistence);
+					db->updateShadingUniforms(lightPos, lightCol, diffuseCol, ambientStrength, texExistence);
 				}
-				cb->viewPipeline();
+				db->viewPipeline();
 
 				glDrawArrays(GL_TRIANGLES, 0, GLsizei(models.at(selectedModelName).numVerts()));
 
@@ -1972,19 +2000,19 @@ int main() {
 
 		else if (!rendering3D) {
 			// WINDOW
-			glfwInit();
-			Window window(800, 800, "CPSC 589/689"); // could set callbacks at construction if desired
+			//glfwInit();
+			//Window window(800, 800, "CPSC 589/689"); // could set callbacks at construction if desired
 
-			GLDebug::enable();
+			//GLDebug::enable();
 
-			ShaderProgram shader("shaders/test.vert", "shaders/test.frag");
+			//ShaderProgram shader("shaders/test.vert", "shaders/test.frag");
 
-			auto cb = std::make_shared<MyCallbacks>(shader, window.getWidth(), window.getHeight());
+			//auto cb = std::make_shared<MyCallbacks>(shader, window.getWidth(), window.getHeight());
 
 
-			window.setCallbacks(cb);
+			//window.setCallbacks(cb);
 
-			window.setupImGui();
+			//window.setupImGui();
 
 			//===============================================================================================================//
 
@@ -2129,7 +2157,7 @@ int main() {
 			//=========================================================================================================================//
 			// RENDER LOOP
 			while (!window.shouldClose() && !rendering3D) {
-
+				window.setCallbacks(cb);
 
 				glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
