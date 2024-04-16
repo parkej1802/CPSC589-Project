@@ -552,163 +552,6 @@ Mesh get_front_mesh(const CDT::Triangulation<double>& cdt) {
 	return mesh;
 }
 
-Mesh get_back_mesh(const CDT::Triangulation<double>& cdt) {
-	Mesh mesh;
-
-	for (const auto& vertex : cdt.vertices) {
-		glm::vec3 temp = glm::vec3(vertex.x, vertex.y, 0.0f);
-		mesh.vertices.push_back(temp);
-	}
-
-	for (const auto& vertex : cdt.vertices) {
-		glm::vec3 temp = glm::vec3(0.0, 0.0, 1.0f);
-		mesh.normals.push_back(temp);
-	}
-
-	for (const auto& triangle : cdt.triangles) {
-		std::vector<int> temp;
-		for (int i = 2; i >= 0; --i) {
-			int vertexIndex = triangle.vertices[i] + 1;
-			temp.push_back(vertexIndex);
-		}
-		mesh.triangles.push_back(temp);
-	}
-
-	return mesh;
-}
-
-
-void front_inflation_side(Mesh& mesh, const std::vector<glm::vec3>& controlPoints) {
-	std::vector<glm::vec3> filteredControlPoints;
-	std::copy_if(controlPoints.begin(), controlPoints.end(), std::back_inserter(filteredControlPoints),
-		[](const glm::vec3& cp) { return cp.z > 0; });
-
-	if (filteredControlPoints.empty()) return;
-
-	std::sort(filteredControlPoints.begin(), filteredControlPoints.end(),
-		[](const glm::vec3& a, const glm::vec3& b) { return a.y < b.y; });
-
-	for (auto& vert : mesh.vertices) {
-		auto it = std::lower_bound(filteredControlPoints.begin(), filteredControlPoints.end(), vert,
-			[](const glm::vec3& cp, const glm::vec3& vert) { return cp.y < vert.y; });
-
-		if (it == filteredControlPoints.begin()) {
-			vert.z = it->z;
-		}
-		else if (it == filteredControlPoints.end()) {
-			vert.z = (it - 1)->z;
-		}
-		else {
-			const glm::vec3& low = *(it - 1);
-			const glm::vec3& high = *it;
-			float ratio = (vert.y - low.y) / (high.y - low.y);
-			vert.z = low.z + ratio * (high.z - low.z);
-		}
-	}
-}
-
-void front_inflation_top(Mesh& mesh, const std::vector<glm::vec3>& controlPoints) {
-	std::vector<glm::vec3> filteredControlPoints;
-	std::copy_if(controlPoints.begin(), controlPoints.end(), std::back_inserter(filteredControlPoints),
-		[](const glm::vec3& cp) { return cp.z > 0; });
-
-	if (filteredControlPoints.empty()) return;
-
-	std::sort(filteredControlPoints.begin(), filteredControlPoints.end(),
-		[](const glm::vec3& a, const glm::vec3& b) { return a.x < b.x; });
-
-	for (auto& vert : mesh.vertices) {
-		auto it = std::lower_bound(filteredControlPoints.begin(), filteredControlPoints.end(), vert,
-			[](const glm::vec3& cp, const glm::vec3& vert) { return cp.x < vert.x; });
-
-		if (it == filteredControlPoints.begin()) {
-			if (vert.z > it->z) {
-				vert.z = it->z;
-			}
-		}
-		else if (it == filteredControlPoints.end()) {
-			if (vert.z > (it - 1)->z) {
-				vert.z = (it - 1)->z;
-			}
-		}
-		else {
-			const glm::vec3& low = *(it - 1);
-			const glm::vec3& high = *it;
-			float ratio = (vert.x - low.x) / (high.x - low.x);
-			float newZ = low.z + ratio * (high.z - low.z);
-			if (vert.z > newZ) {
-				vert.z = newZ;
-			}
-		}
-	}
-}
-
-
-void back_inflation_side(Mesh& mesh, const std::vector<glm::vec3>& controlPoints) {
-	std::vector<glm::vec3> filteredControlPoints;
-	std::copy_if(controlPoints.begin(), controlPoints.end(), std::back_inserter(filteredControlPoints),
-		[](const glm::vec3& cp) { return cp.z < 0; });
-
-	if (filteredControlPoints.empty()) return;
-
-	std::sort(filteredControlPoints.begin(), filteredControlPoints.end(),
-		[](const glm::vec3& a, const glm::vec3& b) { return a.y < b.y; });
-
-	for (auto& vert : mesh.vertices) {
-		auto it = std::lower_bound(filteredControlPoints.begin(), filteredControlPoints.end(), vert,
-			[](const glm::vec3& cp, const glm::vec3& vert) { return cp.y < vert.y; });
-
-		if (it == filteredControlPoints.begin()) {
-			vert.z = it->z;
-		}
-		else if (it == filteredControlPoints.end()) {
-			vert.z = (it - 1)->z;
-		}
-		else {
-			const glm::vec3& low = *(it - 1);
-			const glm::vec3& high = *it;
-			float ratio = (vert.y - low.y) / (high.y - low.y);
-			vert.z = low.z + ratio * (high.z - low.z);
-		}
-	}
-}
-
-void back_inflation_top(Mesh& mesh, const std::vector<glm::vec3>& controlPoints) {
-	std::vector<glm::vec3> filteredControlPoints;
-	std::copy_if(controlPoints.begin(), controlPoints.end(), std::back_inserter(filteredControlPoints),
-		[](const glm::vec3& cp) { return cp.z < 0; });
-
-	if (filteredControlPoints.empty()) return;
-
-	std::sort(filteredControlPoints.begin(), filteredControlPoints.end(),
-		[](const glm::vec3& a, const glm::vec3& b) { return a.x < b.x; });
-
-	for (auto& vert : mesh.vertices) {
-		auto it = std::lower_bound(filteredControlPoints.begin(), filteredControlPoints.end(), vert,
-			[](const glm::vec3& cp, const glm::vec3& vert) { return cp.x < vert.x; });
-
-		if (it == filteredControlPoints.begin()) {
-			if (vert.z < it->z) {
-				vert.z = it->z;
-			}
-		}
-		else if (it == filteredControlPoints.end()) {
-			if (vert.z < (it - 1)->z) {
-				vert.z = (it - 1)->z;
-			}
-		}
-		else {
-			const glm::vec3& low = *(it - 1);
-			const glm::vec3& high = *it;
-			float ratio = (vert.x - low.x) / (high.x - low.x);
-			float newZ = low.z + ratio * (high.z - low.z);
-			if (vert.z < newZ) {
-				vert.z = newZ;
-			}
-		}
-	}
-}
-
 bool isCounterClockwise(const std::vector<glm::vec3>& controlPoints) {
 	if (controlPoints.size() < 3) return false;  // 최소 3점이 필요
 
@@ -725,86 +568,6 @@ bool isCounterClockwise(const std::vector<glm::vec3>& controlPoints) {
 	return sum > 0;
 }
 
-/*
-void connectPlanarMeshes(Mesh& frontMesh, Mesh& backMesh, const std::vector<glm::vec3>& controlPoints) {
-	int frontVerticesCount = frontMesh.vertices.size();
-
-	for (auto& vert : frontMesh.vertices) {
-		vert.z = 0.01f;
-	}
-
-	for (auto& vert : backMesh.vertices) {
-		vert.z = -0.01f;
-	}
-
-	// backMesh의 정점과 삼각형을 frontMesh에 추가
-	frontMesh.vertices.insert(frontMesh.vertices.end(), backMesh.vertices.begin(), backMesh.vertices.end());
-	frontMesh.normals.insert(frontMesh.normals.end(), backMesh.normals.begin(), backMesh.normals.end());
-
-	for (const auto& triangle : backMesh.triangles) {
-		std::vector<int> newTriangle = { triangle[0] + frontVerticesCount, triangle[1] + frontVerticesCount, triangle[2] + frontVerticesCount };
-		frontMesh.triangles.push_back(newTriangle);
-	}
-
-
-	for (int i = 0; i < controlPoints.size(); i++) {
-		// Find vertices in frontMesh and backMesh that match controlPoints[i] and controlPoints[i+1]
-		int frontIndexA = -1, backIndexA = -1;
-		int frontIndexB = -1, backIndexB = -1;
-
-		for (int j = 0; j < frontVerticesCount; j++) {
-			if (glm::vec2(frontMesh.vertices[j].x, frontMesh.vertices[j].y) == glm::vec2(controlPoints[i].x, controlPoints[i].y)) {
-				frontIndexA = j;
-				break; // Found the matching vertex, no need to continue searching
-			}
-		}
-
-
-		if (i < controlPoints.size() - 1) {
-			for (int j = 0; j < frontVerticesCount; j++) {
-				if (glm::vec2(frontMesh.vertices[j].x, frontMesh.vertices[j].y) == glm::vec2(controlPoints[i + 1].x, controlPoints[i + 1].y)) {
-					frontIndexB = j;
-					break; // Found the matching vertex, no need to continue searching
-				}
-			}
-		}
-		else {
-			frontIndexB = 0;
-		}
-
-		for (int j = 0; j < backMesh.vertices.size(); j++) {
-			if (glm::vec2(backMesh.vertices[j].x, backMesh.vertices[j].y) == glm::vec2(controlPoints[i].x, controlPoints[i].y)) {
-				backIndexA = j + frontVerticesCount;
-				break; // Found the matching vertex, no need to continue searching
-			}
-		}
-
-		if (i < controlPoints.size() - 1) {
-			for (int j = 0; j < backMesh.vertices.size(); j++) {
-				if (glm::vec2(backMesh.vertices[j].x, backMesh.vertices[j].y) == glm::vec2(controlPoints[i + 1].x, controlPoints[i + 1].y)) {
-					backIndexB = j + frontVerticesCount;
-					break; // Found the matching vertex, no need to continue searching
-				}
-			}
-		}
-		else {
-			backIndexB = frontVerticesCount;
-		}
-
-		// Connect the vertices with triangles
-		if (isCounterClockwise(controlPoints)) {
-			frontMesh.triangles.push_back({ frontIndexA + 1, backIndexA + 1, frontIndexB + 1 });
-			frontMesh.triangles.push_back({ frontIndexB + 1, backIndexA + 1, backIndexB + 1 });
-		}
-		else {
-			frontMesh.triangles.push_back({ frontIndexA + 1, frontIndexB + 1, backIndexA + 1 });
-			frontMesh.triangles.push_back({ frontIndexB + 1, backIndexB + 1, backIndexA + 1 });
-		}
-	}
-
-	frontMesh.normals = calculateVertexNormals(frontMesh);
-}
-*/
 void generate3dMesh(Mesh& frontMesh, const std::vector<int> controlPoints) {
 	int frontVerticesCount = frontMesh.vertices.size();
 	std::vector<glm::vec3> points;
@@ -891,7 +654,6 @@ bool isPointInsidePolygon(const glm::vec3& point, const std::vector<glm::vec3>& 
 	}
 	return (intersections % 2) != 0;
 }
-
 
 void randomDart(CDT::Triangulation<double>& cdt, const std::vector<glm::vec3>& lineVert, float minDist, int newPointsCount) {
 	std::mt19937 rng(std::random_device{}());
@@ -1798,55 +1560,18 @@ void phaseCreateMesh(std::shared_ptr<MyCallbacks>& cb,
 	Mesh front_mesh = get_front_mesh(cdt);
 	fake_loopSubdivision(front_mesh);
 	fake_loopSubdivision(front_mesh);
-	//front_inflation_side(front_mesh, transformedVerts[1]);
-	//front_inflation_top(front_mesh, transformedVerts[2]);
-	//front_mesh.normals = calculateVertexNormals(front_mesh);
 
 	auto boundary = boundary_vertices(front_mesh);
 	generate3dMesh(front_mesh, boundary);
-
-	//Mesh back_mesh = get_back_mesh(cdt);
-	//fake_loopSubdivision(back_mesh);
-	//back_inflation_side(back_mesh, transformedVerts[1]);
-	//back_inflation_top(back_mesh, transformedVerts[2]);
-	//back_mesh.normals = calculateVertexNormals(back_mesh);
-
-	//connectPlanarMeshes(front_mesh, back_mesh, controlPointVerts[0]);
-	//fake_loopSubdivision(front_mesh);
-
-	//inflate_front_back(front_mesh, transformedVerts[1], transformedVerts[2]);
-	//laplacian(front_mesh);
-	//loopSubdivision(front_mesh, false);
-	
+	inflate_front_back(front_mesh, transformedVerts[1], transformedVerts[2]);
+	loopSubdivision(front_mesh, false);
+	/*
 	for (int i = 0; i < 5; i++) {
 		inflate_front_back(front_mesh, transformedVerts[1], transformedVerts[2]);
 		loopSubdivision(front_mesh, false);
 		//laplacian(front_mesh);
 	}
-
-	//fake_loopSubdivision(front_mesh);
-	//loopSubdivision(front_mesh, true);
-	//inflate_front_back(front_mesh, transformedVerts[1], transformedVerts[2]);
-
-	//loopSubdivision(front_mesh, true);
-	//loopSubdivision(front_mesh, true);
-	//loopSubdivision(front_mesh, true);
-	//loopSubdivision(front_mesh, true);
-	//loopSubdivision(front_mesh, true);
-	//fake_loopSubdivision(front_mesh);
-	//front_mesh.normals = calculateVertexNormals(front_mesh);
-	//loopSubdivision(front_mesh, false);
-	//loopSubdivision(front_mesh, false);
-	//loopSubdivision(front_mesh, false);
-	//loopSubdivision(front_mesh, false);
-
-	//fake_loopSubdivision(front_mesh);
-	//inflation_side(front_mesh, transformedVerts[1]);
-	//inflation_top(front_mesh, transformedVerts[2]);
-	//front_mesh.normals = calculateVertexNormals(front_mesh);
-	//loopSubdivision(front_mesh);
-	//inflation_side(front_mesh, transformedVerts[1]);
-	//inflation_top(front_mesh, transformedVerts[2]);
+	*/
 	saveMeshToOBJ(front_mesh, "C:/Users/dhktj/OneDrive/Desktop/after.obj");
 	//saveMeshToOBJ(front_mesh, "C:/Users/U/Documents/ImaginationModeling/589-689-3D-skeleton/models/merged.obj");
 	
