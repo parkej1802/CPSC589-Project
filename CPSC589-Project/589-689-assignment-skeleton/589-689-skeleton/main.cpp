@@ -1701,13 +1701,10 @@ int main() {
 	GLDebug::enable();
 	ShaderProgram shader3D("shaders/3d.vert", "shaders/3d.frag");
 	ShaderProgram shader("shaders/test.vert", "shaders/test.frag");
-	//auto db = std::make_shared<Callbacks3D>(shader3D, window.getWidth(), window.getHeight());
 	auto cb = std::make_shared<MyCallbacks>(shader, shader3D, window.getWidth(), window.getHeight());
-
 
 	window.setCallbacks(cb);
 	window.setupImGui();
-	//window.setupImGui();
 
 	while (!quit) {
 
@@ -2010,7 +2007,7 @@ int main() {
 
 			
 			// RENDER LOOP
-			while (!window.shouldClose() && !rendering3D) {
+			while (!window.shouldClose() && !rendering3D && !quit) {
 
 				glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
