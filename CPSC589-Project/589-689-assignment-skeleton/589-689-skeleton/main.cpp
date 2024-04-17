@@ -37,12 +37,14 @@ bool drew = false;
 bool showDraw = false;
 bool rendering3D = false;
 bool quit = false;
+bool xytoZero = false;
 
 CPU_Geometry grid;
 glm::vec3 red = glm::vec3(1, 0, 0);
 glm::vec3 green = glm::vec3(0, 1, 0);
 glm::vec3 blue = glm::vec3(0, 0, 1);
 glm::vec3 white = glm::vec3(1, 1, 1);
+glm::vec3 yellow = glm::vec3(1, 1, 0);
 
 //***************************************************************************|
 //							STRUCTS
@@ -112,138 +114,7 @@ struct EdgeKeyHash {
 		return std::hash<int>()(key.first) ^ (std::hash<int>()(key.second) << 1);
 	}
 };
-class Callbacks3D : public CallbackInterface {
 
-public:
-	// Constructor. We use values of -1 for attributes that, at the start of
-	// the program, have no meaningful/"true" value.
-	Callbacks3D(ShaderProgram& shader, int screenWidth, int screenHeight)
-		: shader(shader)
-		, camera(glm::radians(45.f), glm::radians(45.f), 3.0)
-		, aspect(1.0f)
-		, rightMouseDown(false)
-		, mouseOldX(-1.0)
-		, mouseOldY(-1.0)
-		, screenWidth(screenWidth)
-		, screenHeight(screenHeight)
-	{
-		updateUniformLocations();
-	}
-
-	virtual void keyCallback(int key, int scancode, int action, int mods) {
-		if (key == GLFW_KEY_R && action == GLFW_PRESS) {
-			shader.recompile();
-			updateUniformLocations();
-		}
-	}
-
-	virtual void mouseButtonCallback(int button, int action, int mods) {
-		// If we click the mouse on the ImGui window, we don't want to log that
-		// here. But if we RELEASE the mouse over the window, we do want to
-		// know that!
-		auto& io = ImGui::GetIO();
-		if (io.WantCaptureMouse && action == GLFW_PRESS) return;
-
-		if (button == GLFW_MOUSE_BUTTON_RIGHT) {
-			if (action == GLFW_PRESS)			rightMouseDown = true;
-			else if (action == GLFW_RELEASE)	rightMouseDown = false;
-		}
-	}
-
-	// Updates the screen width and height, in screen coordinates
-	// (not necessarily the same as pixels)
-	virtual void windowSizeCallback(int width, int height) {
-		screenWidth = width;
-		screenHeight = height;
-		aspect = float(width) / float(height);
-	}
-
-	virtual void cursorPosCallback(double xpos, double ypos) {
-		if (rightMouseDown) {
-			camera.incrementTheta(ypos - mouseOldY);
-			camera.incrementPhi(xpos - mouseOldX);
-		}
-		mouseOldX = xpos;
-		mouseOldY = ypos;
-	}
-	virtual void scrollCallback(double xoffset, double yoffset) {
-		camera.incrementR(yoffset);
-	}
-
-	void viewPipeline() {
-		glm::mat4 M = glm::mat4(1.0);
-		glm::mat4 V = camera.getView();
-		glm::mat4 P = glm::perspective(glm::radians(45.0f), aspect, 0.01f, 1000.f);
-		glUniformMatrix4fv(mLoc, 1, GL_FALSE, glm::value_ptr(M));
-		glUniformMatrix4fv(vLoc, 1, GL_FALSE, glm::value_ptr(V));
-		glUniformMatrix4fv(pLoc, 1, GL_FALSE, glm::value_ptr(P));
-	}
-
-	void updateShadingUniforms(
-		const glm::vec3& lightPos, const glm::vec3& lightCol,
-		const glm::vec3& diffuseCol, float ambientStrength, bool texExistence
-	)
-	{
-		// Like viewPipeline(), this function assumes shader.use() was called before.
-		glUniform3f(lightPosLoc, lightPos.x, lightPos.y, lightPos.z);
-		glUniform3f(lightColLoc, lightCol.r, lightCol.g, lightCol.b);
-		glUniform3f(diffuseColLoc, diffuseCol.r, diffuseCol.g, diffuseCol.b);
-		glUniform1f(ambientStrengthLoc, ambientStrength);
-		glUniform1i(texExistenceLoc, (int)texExistence);
-	}
-
-	// Converts the cursor position from screen coordinates to GL coordinates
-	// and returns the result.
-	glm::vec2 getCursorPosGL() {
-		glm::vec2 screenPos(mouseOldX, mouseOldY);
-		// Interpret click as at centre of pixel.
-		glm::vec2 centredPos = screenPos + glm::vec2(0.5f, 0.5f);
-		// Scale cursor position to [0, 1] range.
-		glm::vec2 scaledToZeroOne = centredPos / glm::vec2(screenWidth, screenHeight);
-
-		glm::vec2 flippedY = glm::vec2(scaledToZeroOne.x, 1.0f - scaledToZeroOne.y);
-
-		// Go from [0, 1] range to [-1, 1] range.
-		return 2.f * flippedY - glm::vec2(1.f, 1.f);
-	}
-
-
-Camera camera;
-private:
-	// Uniform locations do not, ordinarily, change between frames.
-	// However, we may need to update them if the shader is changed and recompiled.
-	void updateUniformLocations() {
-		mLoc = glGetUniformLocation(shader, "M");
-		vLoc = glGetUniformLocation(shader, "V");
-		pLoc = glGetUniformLocation(shader, "P");;
-		lightPosLoc = glGetUniformLocation(shader, "lightPos");;
-		lightColLoc = glGetUniformLocation(shader, "lightCol");;
-		diffuseColLoc = glGetUniformLocation(shader, "diffuseCol");;
-		ambientStrengthLoc = glGetUniformLocation(shader, "ambientStrength");;
-		texExistenceLoc = glGetUniformLocation(shader, "texExistence");;
-	}
-
-	int screenWidth;
-	int screenHeight;
-
-	bool rightMouseDown;
-	float aspect;
-	double mouseOldX;
-	double mouseOldY;
-
-	// Uniform locations
-	GLint mLoc;
-	GLint vLoc;
-	GLint pLoc;
-	GLint lightPosLoc;
-	GLint lightColLoc;
-	GLint diffuseColLoc;
-	GLint ambientStrengthLoc;
-	GLint texExistenceLoc;
-
-	ShaderProgram& shader;
-
-};
 
 // You may want to make your own class to replace this one.
 class ModelInfo {
@@ -302,6 +173,7 @@ public:
 
 	virtual void keyCallback(int key, int scancode, int action, int mods) {
 		if (rendering3D) {
+			
 			if (key == GLFW_KEY_R && action == GLFW_PRESS) {
 				x_angle = 0.0f;
 				y_angle = 0.0f;
@@ -313,6 +185,12 @@ public:
 			}
 		}
 		else {
+			if (xytoZero) {
+				x_angle = 0.0f;
+				y_angle = 0.0f;
+				shader.recompile();
+				xytoZero = false;
+			}
 			if (key == GLFW_KEY_R && action == GLFW_PRESS) {
 				x_angle = 0.0f;
 				y_angle = 0.0f;
@@ -1791,7 +1669,7 @@ void phaseCreateMesh(std::shared_ptr<MyCallbacks>& cb,
 	}
 	*/
 	//saveMeshToOBJ(front_mesh, "C:/Users/dhktj/OneDrive/Desktop/after.obj");
-	saveMeshToOBJ(front_mesh, "C:/Users/U/Documents/ImaginationModeling/589-689-3D-skeleton/models/merged.obj");
+	saveMeshToOBJ(front_mesh, "./models/drawnModeloutput.obj");
 
 	CDT::extractEdgesFromTriangles(cdt.triangles);
 }
@@ -1839,26 +1717,12 @@ int main() {
 			ImGui::DestroyContext();
 			window.setCallbacks(cb);
 			window.setupImGui();
-			// WINDOW
-			//glfwInit();
-			//Window window(800, 800, "CPSC 589/689"); // could set callbacks at construction if desired
-
-			//GLDebug::enable();
-
-			// SHADERS
-			/*
-			ShaderProgram shader3D("shaders/3d.vert", "shaders/3d.frag");
-			auto cb = std::make_shared<Callbacks3D>(shader3D, window.getWidth(), window.getHeight());
-			window.setCallbacks(cb);
-
-			window.setupImGui();
-			*/
+			
 
 			std::unordered_map<std::string, ModelInfo> models;
 			//models.emplace("wall", ModelInfo("./models/back.obj"));
 			//models.emplace("Cow", ModelInfo("./models/spot/spot_triangulated.obj"));
-			models.emplace("Cow", ModelInfo("C:/Users/U/Documents/ImaginationModeling/589-689-3D-skeleton/models/merged.obj"));
-			models.emplace("Torus", ModelInfo("./models/output1.obj"));
+			models.emplace("toru", ModelInfo("./models/drawnModeloutput.obj"));
 			//models.emplace("Cow", ModelInfo("./models/output1.obj"));
 			models.emplace("Fish", ModelInfo("./models/blub/blub_triangulated.obj"));
 
@@ -1873,9 +1737,9 @@ int main() {
 			// We have to use .at() and .emplace() instead of "[]" notation.
 			// See: https://stackoverflow.com/questions/29826155/why-a-default-constructor-is-needed-using-unordered-map-and-tuple
 			std::unordered_map<std::string, Texture> textures;
-			textures.emplace("Cow", Texture("C:/Users/U/Documents/ImaginationModeling/589-689-3D-skeleton/textures/spot/spot_texture.png", GL_LINEAR));
-			textures.emplace("Fish", Texture("./textures/blub/blub_texture.png", GL_LINEAR));
+			textures.emplace("toru", Texture("./textures/blub/blub_texture.png", GL_LINEAR));
 			const std::string noTexName = "None";
+
 
 			// Select first texture by default.
 			std::string selectedTexName = textures.begin()->first;
@@ -1897,7 +1761,7 @@ int main() {
 
 
 			// RENDER LOOP
-			while (!window.shouldClose() && !quit) {
+			while (!window.shouldClose()) {
 				glfwPollEvents();
 
 
@@ -2020,6 +1884,7 @@ int main() {
 			glfwTerminate();
 			return 0;
 			*/
+			quit = true;
 		}
 
 		else if (!rendering3D) {
@@ -2028,21 +1893,7 @@ int main() {
 			ImGui::DestroyContext();
 			window.setCallbacks(cb);
 			window.setupImGui();
-			// WINDOW
-			//glfwInit();
-			//Window window(800, 800, "CPSC 589/689"); // could set callbacks at construction if desired
-
-			//GLDebug::enable();
-
-			//ShaderProgram shader("shaders/test.vert", "shaders/test.frag");
-
-			//auto cb = std::make_shared<MyCallbacks>(shader, window.getWidth(), window.getHeight());
-
-
-			//window.setCallbacks(cb);
-
-			//window.setupImGui();
-
+		
 			//===============================================================================================================//
 
 			// Variables that ImGui will alter.
@@ -2110,7 +1961,6 @@ int main() {
 				0, 2, 3
 			};
 
-			// VAO, VBO, EBO 설정
 			GLuint VAO, VBO, EBO;
 			glGenVertexArrays(1, &VAO);
 			glGenBuffers(1, &VBO);
@@ -2124,11 +1974,9 @@ int main() {
 			glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
 			glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
 
-			// position attribute
 			glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)0);
 			glEnableVertexAttribArray(0);
 
-			// color attribute
 			glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(3 * sizeof(float)));
 			glEnableVertexAttribArray(1);
 
@@ -2160,33 +2008,9 @@ int main() {
 
 			//=========================================================================================================================//
 
-			GLuint VAO3, VBO3, EBO3;
-			glGenVertexArrays(1, &VAO3);
-			glGenBuffers(1, &VBO3);
-			glGenBuffers(1, &EBO3);
-
-			glBindVertexArray(VAO3);
-
-			glBindBuffer(GL_ARRAY_BUFFER, VBO3);
-			glBufferData(GL_ARRAY_BUFFER, sizeof(showVertices), showVertices, GL_STATIC_DRAW);
-
-			glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO3);
-			glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(showIndices), showIndices, GL_STATIC_DRAW);
-
-			glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)0);
-			glEnableVertexAttribArray(0);
-
-			glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(3 * sizeof(float)));
-			glEnableVertexAttribArray(1);
-
-			glBindBuffer(GL_ARRAY_BUFFER, 0);
-			glBindVertexArray(0);
-
-
-			//=========================================================================================================================//
+			
 			// RENDER LOOP
 			while (!window.shouldClose() && !rendering3D) {
-				window.setCallbacks(cb);
 
 				glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -2201,19 +2025,6 @@ int main() {
 				glBindVertexArray(VAO2);
 				glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 				glBindVertexArray(0);
-				/*
-
-				// If mouse just went down, see if it was on a point.
-				if (cb->leftMouseJustPressed() || cb->rightMouseJustPressed()) {
-					// We use the point DIAMETER as the threshold, meaning the user
-					// can click anywhere within 2x radius to select.
-					// You may want to change that.
-					float threshold = pointSize;
-
-					selectedPointIndex = cb->indexOfPointAtCursorPos(cpuGeom.verts, threshold);
-				}
-
-				*/
 
 				// when the left button gets pressed increase the cross_section
 				if (cb->leftMouseJustPressed()) {
@@ -2241,6 +2052,26 @@ int main() {
 					if (cb->getCursorPosGL().x >= 0.8f && cb->getCursorPosGL().x <= 0.95f && cb->getCursorPosGL().y >= 0.8f && cb->getCursorPosGL().y <= 0.95f) {
 						printf("clear");
 						clear = true;
+						if (cross_section == 1) {
+							if (lineVerts[1].empty()) {
+								cross_section--;
+							}
+						}
+						if (cross_section == 2) {
+							if (lineVerts[2].empty()) {
+								cross_section--;
+							}
+						}
+						if (cross_section == 4) {
+							for (int i = 0; i < 3; i++) {
+								lineVerts[i].clear();
+								transformedVerts[i].clear();
+							}
+							xytoZero = true;
+						
+							cross_section = 0;
+							
+						}
 
 
 					}
@@ -2255,26 +2086,7 @@ int main() {
 					//std::cout << "Show draw: " << showDraw << std::endl;
 				}
 
-				/*
-				else if (cb->rightMouseJustPressed()) {
-					if (selectedPointIndex >= 0) {
-						// If we right-clicked on a vertex, erase it.
-						controlPointcpu.verts.erase(controlPointcpu.verts.begin() + selectedPointIndex);
-						controlPointcpu.cols.erase(controlPointcpu.cols.begin() + selectedPointIndex);
-						selectedPointIndex = -1; // So that we don't drag in next frame.
-
-						controlPointgpu.setVerts(controlPointcpu.verts);
-						controlPointgpu.setCols(controlPointcpu.cols);
-					}
-				}
-
-				else if (cb->leftMouseActive() && selectedPointIndex >= 0) {
-					// Drag selected point.
-					cpuGeom.verts[selectedPointIndex] = glm::vec3(cb->getCursorPosGL(), 0.f);
-					gpuGeom.setVerts(cpuGeom.verts);
-
-				}
-				*/
+				
 
 
 				bool change = false; // Whether any ImGui variable's changed.
@@ -2311,31 +2123,15 @@ int main() {
 				shader.use();
 				gpuGeom.bind();
 
-				if (change)
-				{
-					//cb->updateShadingUniforms(lightPos, lightCol, diffuseCol, ambientStrength, texExistence);
-				}
-
+			
 				glPointSize(pointSize);
 
 				//glEnable(GL_FRAMEBUFFER_SRGB);
 				//glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-				// actual drawing happening here
-				/*
-				draw(
-					cb,
-					lineVerts, lineCpu,
-					controlPointVerts, controlPointCpu,
-					bsplineCurveVerts, bsplineCurveCpu,
-					transformedVerts,
-					gpuGeom,
-					cross_section);
-
-				*/
-				drawCommonElements(gpuGeom, lineCpu, grid.verts, grid.cols);
+				
 				if (cross_section == 0) {
-
+					drawCommonElements(gpuGeom, lineCpu, grid.verts, grid.cols);
 					phaseFront(
 						cb,
 						lineVerts, lineCpu,
@@ -2345,6 +2141,7 @@ int main() {
 						cross_section);
 				}
 				else if (cross_section == 1) {
+					drawCommonElements(gpuGeom, lineCpu, grid.verts, grid.cols);
 					phaseSide(
 						cb,
 						lineVerts, lineCpu,
@@ -2354,6 +2151,7 @@ int main() {
 						cross_section);
 				}
 				else if (cross_section == 2) {
+					drawCommonElements(gpuGeom, lineCpu, grid.verts, grid.cols);
 					phaseTop(
 						cb,
 						lineVerts, lineCpu,
@@ -2391,7 +2189,6 @@ int main() {
 						gpuGeom,
 						cross_section);
 				}
-
 				glDisable(GL_FRAMEBUFFER_SRGB); // disable sRGB for things like imgui
 
 				//ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
