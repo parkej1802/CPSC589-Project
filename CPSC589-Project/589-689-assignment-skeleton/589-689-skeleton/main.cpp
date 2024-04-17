@@ -35,7 +35,7 @@ float PI = 3.14159265359;
 bool clear = false;
 bool drew = false;
 bool showDraw = false;
-bool rendering3D = true;
+bool rendering3D = false;
 bool quit = false;
 
 CPU_Geometry grid;
@@ -279,8 +279,9 @@ class MyCallbacks : public CallbackInterface {
 public:
 	// Constructor. We use values of -1 for attributes that, at the start of
 	// the program, have no meaningful/"true" value.
-	MyCallbacks(ShaderProgram& shader, int screenWidth, int screenHeight)
+	MyCallbacks(ShaderProgram& shader, ShaderProgram& shader3D, int screenWidth, int screenHeight)
 		: shader(shader)
+		, shader3D(shader3D)
 		, currentFrame(0)
 		, leftMouseActiveVal(false)
 		, lastLeftPressedFrame(-1)
@@ -300,21 +301,36 @@ public:
 	}
 
 	virtual void keyCallback(int key, int scancode, int action, int mods) {
-		if (key == GLFW_KEY_R && action == GLFW_PRESS) {
-			x_angle = 0.0f;
-			y_angle = 0.0f;
-			shader.recompile();
-			updateUniformLocations();
+		if (rendering3D) {
+			if (key == GLFW_KEY_R && action == GLFW_PRESS) {
+				x_angle = 0.0f;
+				y_angle = 0.0f;
+				shader.recompile();
+				updateUniformLocations();
+			}
+			if (key == GLFW_KEY_X && action == GLFW_PRESS) {
+				quit = true;
+			}
 		}
-		if (key == GLFW_KEY_X && action == GLFW_PRESS) {
-			quit = true;
+		else {
+			if (key == GLFW_KEY_R && action == GLFW_PRESS) {
+				x_angle = 0.0f;
+				y_angle = 0.0f;
+				shader.recompile();
+			}
+			if (key == GLFW_KEY_X && action == GLFW_PRESS) {
+				quit = true;
+			}
 		}
+		
+		
 	}
 
 	virtual void mouseButtonCallback(int button, int action, int mods) {
 		// If we click the mouse on the ImGui window, we don't want to log that
 		// here. But if we RELEASE the mouse over the window, we do want to
 		// know that!
+
 
 		auto& io = ImGui::GetIO();
 		if (io.WantCaptureMouse && action == GLFW_PRESS) return;
@@ -368,6 +384,14 @@ public:
 				screenMouseX = xpos;
 				screenMouseY = ypos;
 			}
+		}
+		else {
+			if (rightMouseDown) {
+				camera.incrementTheta(ypos - screenMouseY);
+				camera.incrementPhi(xpos - screenMouseX);
+			}
+			screenMouseX = xpos;
+			screenMouseY = ypos;
 		}
 
 	}
@@ -473,15 +497,15 @@ public:
 private:
 
 	void updateUniformLocations() {
-		mLoc = glGetUniformLocation(shader, "M");
-		vLoc = glGetUniformLocation(shader, "V");
-		pLoc = glGetUniformLocation(shader, "P");;
+		mLoc = glGetUniformLocation(shader3D, "M");
+		vLoc = glGetUniformLocation(shader3D, "V");
+		pLoc = glGetUniformLocation(shader3D, "P");;
 		
-		lightPosLoc = glGetUniformLocation(shader, "lightPos");;
-		lightColLoc = glGetUniformLocation(shader, "lightCol");;
-		diffuseColLoc = glGetUniformLocation(shader, "diffuseCol");;
-		ambientStrengthLoc = glGetUniformLocation(shader, "ambientStrength");;
-		texExistenceLoc = glGetUniformLocation(shader, "texExistence");;
+		lightPosLoc = glGetUniformLocation(shader3D, "lightPos");;
+		lightColLoc = glGetUniformLocation(shader3D, "lightCol");;
+		diffuseColLoc = glGetUniformLocation(shader3D, "diffuseCol");;
+		ambientStrengthLoc = glGetUniformLocation(shader3D, "ambientStrength");;
+		texExistenceLoc = glGetUniformLocation(shader3D, "texExistence");;
 		
 	}
 
@@ -511,6 +535,7 @@ private:
 	GLint texExistenceLoc;
 
 	ShaderProgram& shader;
+	ShaderProgram& shader3D;
 
 	
 
@@ -1798,26 +1823,22 @@ int main() {
 	GLDebug::enable();
 	ShaderProgram shader3D("shaders/3d.vert", "shaders/3d.frag");
 	ShaderProgram shader("shaders/test.vert", "shaders/test.frag");
-	auto db = std::make_shared<Callbacks3D>(shader3D, window.getWidth(), window.getHeight());
-	auto cb = std::make_shared<MyCallbacks>(shader, window.getWidth(), window.getHeight());
+	//auto db = std::make_shared<Callbacks3D>(shader3D, window.getWidth(), window.getHeight());
+	auto cb = std::make_shared<MyCallbacks>(shader, shader3D, window.getWidth(), window.getHeight());
 
-	if (rendering3D) {
-		window.setCallbacks(db);
-	}
-	else {
-		window.setCallbacks(cb);
 
-	}
+	window.setCallbacks(cb);
 	window.setupImGui();
+	//window.setupImGui();
 
 	while (!quit) {
 
 		if (rendering3D) {
-			
-			Log::debug("Starting main");
-
-			window.setCallbacks(db);
-
+			ImGui_ImplOpenGL3_Shutdown();
+			ImGui_ImplGlfw_Shutdown();
+			ImGui::DestroyContext();
+			window.setCallbacks(cb);
+			window.setupImGui();
 			// WINDOW
 			//glfwInit();
 			//Window window(800, 800, "CPSC 589/689"); // could set callbacks at construction if desired
@@ -1864,15 +1885,15 @@ int main() {
 			bool texExistence = models.at(selectedModelName).hasUVs();
 
 			// Some variables for shading that ImGui may alter.
-			glm::vec3 lightPos(0.f, 35.f, -35.f);
+			glm::vec3 lightPos(0.f, 35.f, 35.f);
 			glm::vec3 lightCol(1.f);
-			glm::vec3 diffuseCol(1.f, 0.f, 0.f);
+			glm::vec3 diffuseCol(0.637f, 0.52f, 0.52f);
 			float ambientStrength = 0.035f;
 			bool simpleWireframe = false;
 
 			// Set the initial, default values of the shading uniforms.
 			shader3D.use();
-			db->updateShadingUniforms(lightPos, lightCol, diffuseCol, ambientStrength, texExistence);
+			cb->updateShadingUniforms(lightPos, lightCol, diffuseCol, ambientStrength, texExistence);
 
 
 			// RENDER LOOP
@@ -1951,7 +1972,10 @@ int main() {
 				if (!texExistence) change |= ImGui::ColorEdit3("Diffuse colour", glm::value_ptr(diffuseCol));
 
 				// The rest of our ImGui widgets.
-				change |= ImGui::DragFloat3("Light's position", glm::value_ptr(lightPos));
+				//change |= ImGui::DragFloat3("Light's position", glm::value_ptr(lightPos));
+				change |= ImGui::SliderFloat("Light x", &lightPos.x, -35.0f, 35.0f);
+				change |= ImGui::SliderFloat("Light y", &lightPos.y, -35.0f, 35.0f);
+				change |= ImGui::SliderFloat("Light z", &lightPos.z, -35.0f, 35.0f);
 				change |= ImGui::ColorEdit3("Light's colour", glm::value_ptr(lightCol));
 				change |= ImGui::SliderFloat("Ambient strength", &ambientStrength, 0.0f, 1.f);
 				change |= ImGui::Checkbox("Simple wireframe", &simpleWireframe);
@@ -1974,9 +1998,9 @@ int main() {
 				{
 					// If any of our shading values was updated, we need to update the
 					// respective GLSL uniforms.
-					db->updateShadingUniforms(lightPos, lightCol, diffuseCol, ambientStrength, texExistence);
+					cb->updateShadingUniforms(lightPos, lightCol, diffuseCol, ambientStrength, texExistence);
 				}
-				db->viewPipeline();
+				cb->viewPipeline();
 
 				glDrawArrays(GL_TRIANGLES, 0, GLsizei(models.at(selectedModelName).numVerts()));
 
@@ -1999,6 +2023,11 @@ int main() {
 		}
 
 		else if (!rendering3D) {
+			ImGui_ImplOpenGL3_Shutdown();
+			ImGui_ImplGlfw_Shutdown();
+			ImGui::DestroyContext();
+			window.setCallbacks(cb);
+			window.setupImGui();
 			// WINDOW
 			//glfwInit();
 			//Window window(800, 800, "CPSC 589/689"); // could set callbacks at construction if desired
@@ -2204,7 +2233,7 @@ int main() {
 					if (cb->getCursorPosGL().x >= 0.8f && cb->getCursorPosGL().x <= 0.95f && cb->getCursorPosGL().y <= -0.8f && cb->getCursorPosGL().y >= -0.95f) {
 						button = true;
 						if (cross_section < 5) cross_section++;
-
+						
 
 
 					}
@@ -2250,6 +2279,7 @@ int main() {
 
 				bool change = false; // Whether any ImGui variable's changed.
 
+				/*
 				// Three functions that must be called each new frame.
 				ImGui_ImplOpenGL3_NewFrame();
 				ImGui_ImplGlfw_NewFrame();
@@ -2276,6 +2306,7 @@ int main() {
 
 				ImGui::End();
 				ImGui::Render();
+				*/
 
 				shader.use();
 				gpuGeom.bind();
@@ -2284,7 +2315,6 @@ int main() {
 				{
 					//cb->updateShadingUniforms(lightPos, lightCol, diffuseCol, ambientStrength, texExistence);
 				}
-				cb->viewPipeline();
 
 				glPointSize(pointSize);
 
@@ -2364,7 +2394,7 @@ int main() {
 
 				glDisable(GL_FRAMEBUFFER_SRGB); // disable sRGB for things like imgui
 
-				ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+				//ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
 				window.swapBuffers();
 
