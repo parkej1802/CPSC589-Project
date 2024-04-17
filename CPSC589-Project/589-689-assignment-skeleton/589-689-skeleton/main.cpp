@@ -1670,7 +1670,7 @@ void phaseCreateMesh(std::shared_ptr<MyCallbacks>& cb,
 	*/
 	//saveMeshToOBJ(front_mesh, "C:/Users/dhktj/OneDrive/Desktop/after.obj");
 	saveMeshToOBJ(front_mesh, "./models/drawnModeloutput.obj");
-	saveMeshToOBJ(front_mesh, "C:/Users/U/Documents/ImaginationModeling/589-689-3D-skeleton/models/output4.obj");
+	//saveMeshToOBJ(front_mesh, "C:/Users/U/Documents/ImaginationModeling/589-689-3D-skeleton/models/output4.obj");
 	CDT::extractEdgesFromTriangles(cdt.triangles);
 }
 
@@ -1911,10 +1911,10 @@ int main() {
 
 			GLfloat vertices[] = {
 
-				 0.8f, -0.8f, 0.0f,  1.0f, 1.0f, 1.0f,
-				 0.95f, -0.8f, 0.0f,  1.0f, 1.0f, 1.0f,
-				 0.95f, -0.95f, 0.0f,  1.0f, 1.0f, 1.0f,
-				 0.8f, -0.95f, 0.0f,  1.0f, 1.0f, 1.0f,
+				 0.8f, -0.8f, 0.0f,  0.0f, 1.0f, 0.0f,
+				 0.95f, -0.8f, 0.0f,  0.0f, 1.0f, 0.0f,
+				 0.95f, -0.95f, 0.0f,  0.0f, 1.0f, 0.0f,
+				 0.8f, -0.95f, 0.0f,  0.0f, 1.0f, 0.0f,
 			};
 
 
@@ -1937,10 +1937,10 @@ int main() {
 			};
 
 			GLfloat showVertices[] = {
-				 -0.9f, 0.9f, 0.0f,  1.0f, 1.0f, 1.0f,
-				 -0.95f, 0.9f, 0.0f,  1.0f, 1.0f, 1.0f,
-				 -0.95f, 0.95f, 0.0f,  1.0f, 1.0f, 1.0f,
-				 -0.9f, 0.95f, 0.0f,  1.0f, 1.0f, 1.0f,
+				 -0.9f, 0.9f, 0.0f,  1.0f, 0.0f, 0.0f,
+				 -0.95f, 0.9f, 0.0f,  1.0f, 0.0f, 0.0f,
+				 -0.95f, 0.95f, 0.0f,  1.0f, 0.0f, 0.0f,
+				 -0.9f, 0.95f, 0.0f,  1.0f, 0.0f, 0.0f,
 			};
 
 			GLuint showIndices[] = {
