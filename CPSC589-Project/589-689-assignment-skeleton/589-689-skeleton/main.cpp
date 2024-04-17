@@ -1670,7 +1670,7 @@ void phaseCreateMesh(std::shared_ptr<MyCallbacks>& cb,
 	*/
 	//saveMeshToOBJ(front_mesh, "C:/Users/dhktj/OneDrive/Desktop/after.obj");
 	saveMeshToOBJ(front_mesh, "./models/drawnModeloutput.obj");
-
+	saveMeshToOBJ(front_mesh, "C:/Users/U/Documents/ImaginationModeling/589-689-3D-skeleton/models/output4.obj");
 	CDT::extractEdgesFromTriangles(cdt.triangles);
 }
 
@@ -1871,16 +1871,6 @@ int main() {
 
 				window.swapBuffers();
 			}
-
-			// Cleanup
-			/*
-			ImGui_ImplOpenGL3_Shutdown();
-			ImGui_ImplGlfw_Shutdown();
-			ImGui::DestroyContext();
-
-			glfwTerminate();
-			return 0;
-			*/
 			quit = true;
 		}
 
@@ -1947,10 +1937,10 @@ int main() {
 			};
 
 			GLfloat showVertices[] = {
-				 0.8f, 0.6f, 0.0f,  1.0f, 1.0f, 1.0f,
-				 0.95f, 0.6f, 0.0f,  1.0f, 1.0f, 1.0f,
-				 0.95f, 0.75f, 0.0f,  1.0f, 1.0f, 1.0f,
-				 0.8f, 0.75f, 0.0f,  1.0f, 1.0f, 1.0f,
+				 -0.9f, 0.9f, 0.0f,  1.0f, 1.0f, 1.0f,
+				 -0.95f, 0.9f, 0.0f,  1.0f, 1.0f, 1.0f,
+				 -0.95f, 0.95f, 0.0f,  1.0f, 1.0f, 1.0f,
+				 -0.9f, 0.95f, 0.0f,  1.0f, 1.0f, 1.0f,
 			};
 
 			GLuint showIndices[] = {
@@ -2001,13 +1991,37 @@ int main() {
 			glBindBuffer(GL_ARRAY_BUFFER, 0);
 			glBindVertexArray(0);
 
+			//=========================================================================================================================//
+
+			GLuint VAO3, VBO3, EBO3;
+			glGenVertexArrays(1, &VAO3);
+			glGenBuffers(1, &VBO3);
+			glGenBuffers(1, &EBO3);
+
+			glBindVertexArray(VAO3);
+
+			glBindBuffer(GL_ARRAY_BUFFER, VBO3);
+			glBufferData(GL_ARRAY_BUFFER, sizeof(showVertices), showVertices, GL_STATIC_DRAW);
+
+			glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO3);
+			glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(showIndices), showIndices, GL_STATIC_DRAW);
+
+			glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)0);
+			glEnableVertexAttribArray(0);
+
+			glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(3 * sizeof(float)));
+			glEnableVertexAttribArray(1);
+
+			glBindBuffer(GL_ARRAY_BUFFER, 0);
+			glBindVertexArray(0);
+
 			bool button = false;
 
 			//=========================================================================================================================//
 
 			
 			// RENDER LOOP
-			while (!window.shouldClose() && !rendering3D && !quit) {
+			while (!rendering3D && !quit) {
 
 				glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -2020,6 +2034,10 @@ int main() {
 				glBindVertexArray(0);
 
 				glBindVertexArray(VAO2);
+				glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+				glBindVertexArray(0);
+
+				glBindVertexArray(VAO3);
 				glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 				glBindVertexArray(0);
 
@@ -2072,6 +2090,11 @@ int main() {
 
 
 					}
+
+					if (cb->getCursorPosGL().x <= -0.9f && cb->getCursorPosGL().x >= -0.95f && cb->getCursorPosGL().y >= 0.9f && cb->getCursorPosGL().y <= 0.95f) {
+						quit = true;
+					}
+
 
 
 				}
