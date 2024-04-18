@@ -2108,8 +2108,20 @@ int main() {
 
 					if (cb->getCursorPosGL().x >= 0.8f && cb->getCursorPosGL().x <= 0.95f && cb->getCursorPosGL().y <= -0.8f && cb->getCursorPosGL().y >= -0.95f) {
 						button = true;
-						if (cross_section < 5) cross_section++;
 						
+
+						if (cross_section == 0 && lineVerts[0].empty()) {
+
+						}
+						else if (cross_section == 1 && lineVerts[1].empty()) {
+
+						}
+						else if (cross_section == 2 && lineVerts[2].empty()) {
+
+						}
+						else {
+							if (cross_section < 5) cross_section++;
+						}
 
 
 					}
