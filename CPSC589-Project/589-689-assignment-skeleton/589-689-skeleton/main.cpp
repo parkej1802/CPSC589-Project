@@ -1894,7 +1894,7 @@ int main() {
 					for (int i = 0; i < 3; i++) {
 						lineVerts[i].clear();
 						transformedVerts[i].clear();
-						controlPointVerts[i].clear();
+						//controlPointVerts[i].clear();
 					}
 					cross_section = 0;
 					Eulerian_Trail = 0;
@@ -2132,10 +2132,7 @@ int main() {
 							cross_section++;
 							
 						}
-						else if (cross_section == 4 && changeValuePhase) {
-							cross_section++;
-							changeValuePhase = false;
-						}
+				
 						else {
 							if (cross_section < 5) cross_section++;
 						}
@@ -2179,9 +2176,7 @@ int main() {
 
 
 				if (cb->rightMouseJustPressed()) {
-
 					showDraw = !showDraw;
-					//std::cout << "Show draw: " << showDraw << std::endl;
 				}
 
 				
@@ -2272,6 +2267,7 @@ int main() {
 						transformedVerts,
 						gpuGeom,
 						cross_section, numLoop, numFakeLoop, lapla, adjustPos);
+					changeValuePhase = false;
 				}
 				else if (cross_section == 3) {
 					phaseCreateMesh(
@@ -2291,6 +2287,7 @@ int main() {
 						transformedVerts,
 						gpuGeom,
 						cross_section);
+
 					
 				}
 				else if (cross_section == 5) {
