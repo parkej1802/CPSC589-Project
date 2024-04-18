@@ -38,6 +38,7 @@ bool showDraw = false;
 bool rendering3D = false;
 bool quit = false;
 bool xytoZero = false;
+int numLoop = 2;
 
 CPU_Geometry grid;
 glm::vec3 red = glm::vec3(1, 0, 0);
@@ -685,11 +686,11 @@ void generate3dMesh(Mesh& frontMesh, const std::vector<int> controlPoints) {
 	}
 
 	for (auto& vert : frontMesh.vertices) {
-		vert.z = 0.1;
+		vert.z = 0.01;
 	}
 
 	for (auto& vert : backMesh.vertices) {
-		vert.z = -0.1;
+		vert.z = -0.01;
 	}
 
 	frontMesh.vertices.insert(frontMesh.vertices.end(), backMesh.vertices.begin(), backMesh.vertices.end());
@@ -1603,7 +1604,7 @@ void phaseCreateMesh(std::shared_ptr<MyCallbacks>& cb,
 	std::vector<std::vector<glm::vec3>>& controlPointVerts, CPU_Geometry& controlPointCpu,
 	std::vector<std::vector<glm::vec3>>& transformedVerts,
 	GPU_Geometry& gpuGeom,
-	int& cross_section) {
+	int& cross_section, int numLoop) {
 
 	for (int i = 0; i < 3; i++) {
 		controlPointVerts[i] = get_control_points(lineVerts[i], 50);
@@ -1660,7 +1661,8 @@ void phaseCreateMesh(std::shared_ptr<MyCallbacks>& cb,
 	auto boundary = boundary_vertices(front_mesh);
 	generate3dMesh(front_mesh, boundary);
 	inflate_front_back(front_mesh, transformedVerts[1], transformedVerts[2]);
-	loopSubdivision(front_mesh, false);
+	//loopSubdivision(front_mesh, false);
+
 	/*
 	for (int i = 0; i < 5; i++) {
 		inflate_front_back(front_mesh, transformedVerts[1], transformedVerts[2]);
@@ -1668,6 +1670,10 @@ void phaseCreateMesh(std::shared_ptr<MyCallbacks>& cb,
 		//laplacian(front_mesh);
 	}
 	*/
+
+	for (int i = 0; i < numLoop; i++) {
+		loopSubdivision(front_mesh, false);
+	}
 	//saveMeshToOBJ(front_mesh, "C:/Users/dhktj/OneDrive/Desktop/after.obj");
 	saveMeshToOBJ(front_mesh, "./models/drawnModeloutput.obj");
 	//saveMeshToOBJ(front_mesh, "C:/Users/U/Documents/ImaginationModeling/589-689-3D-skeleton/models/output4.obj");
@@ -1705,6 +1711,23 @@ int main() {
 
 	window.setCallbacks(cb);
 	window.setupImGui();
+
+	// GEOMETRY
+	int cross_section = 0;
+	CPU_Geometry lineCpu;
+	CPU_Geometry controlPointCpu;
+	CPU_Geometry bsplineCurveCpu;
+
+	std::vector<std::vector<glm::vec3>> lineVerts(3);
+	std::vector<std::vector<glm::vec3>> transformedVerts(3);
+	std::vector<std::vector<glm::vec3>> controlPointVerts(3);
+	std::vector<std::vector<glm::vec3>> bsplineCurveVerts(3);
+
+	grid.verts = { glm::vec3(-1.0f, .0f, .0f), glm::vec3(1.0f, .0f, .0f), glm::vec3(.0f, 1.0f, .0f), glm::vec3(.0f, -1.0f, .0f) };
+	grid.cols = { glm::vec3(1.0f, 1.0f, 1.0f), glm::vec3(1.0f, 1.0f, 1.0f), glm::vec3(1.0f, 1.0f, 1.0f), glm::vec3(1.0f, 1.0f, 1.0f) };
+
+	GPU_Geometry gpuGeom;
+
 
 	while (!quit) {
 
@@ -1770,6 +1793,7 @@ int main() {
 				ImGui::Begin("Sample window.");
 
 				bool change = false; // Whether any ImGui variable's changed.
+				bool loop = false;
 
 				// A drop-down box for choosing the 3D model to render.
 				if (ImGui::BeginCombo("Model", selectedModelName.c_str()))
@@ -1840,6 +1864,23 @@ int main() {
 				change |= ImGui::ColorEdit3("Light's colour", glm::value_ptr(lightCol));
 				change |= ImGui::SliderFloat("Ambient strength", &ambientStrength, 0.0f, 1.f);
 				change |= ImGui::Checkbox("Simple wireframe", &simpleWireframe);
+				loop |= ImGui::SliderInt("Number of Loop Subdivision", &numLoop, 0, 5);
+
+				if (loop) {
+					phaseCreateMesh(
+						cb,
+						lineVerts, lineCpu,
+						controlPointVerts, controlPointCpu,
+						transformedVerts,
+						gpuGeom,
+						cross_section, numLoop);
+					showCombined(cb,
+						lineVerts, lineCpu,
+						controlPointVerts, controlPointCpu,
+						transformedVerts,
+						gpuGeom,
+						cross_section);
+				}
 
 				// Framerate display, in case you need to debug performance.
 				ImGui::Text("Average %.1f ms/frame (%.1f fps)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
@@ -1890,21 +1931,6 @@ int main() {
 			int selectedPointIndex = -1; // Used for point dragging & deletion
 
 
-			// GEOMETRY
-			int cross_section = 0;
-			CPU_Geometry lineCpu;
-			CPU_Geometry controlPointCpu;
-			CPU_Geometry bsplineCurveCpu;
-
-			std::vector<std::vector<glm::vec3>> lineVerts(3);
-			std::vector<std::vector<glm::vec3>> transformedVerts(3);
-			std::vector<std::vector<glm::vec3>> controlPointVerts(3);
-			std::vector<std::vector<glm::vec3>> bsplineCurveVerts(3);
-
-			grid.verts = { glm::vec3(-1.0f, .0f, .0f), glm::vec3(1.0f, .0f, .0f), glm::vec3(.0f, 1.0f, .0f), glm::vec3(.0f, -1.0f, .0f) };
-			grid.cols = { glm::vec3(1.0f, 1.0f, 1.0f), glm::vec3(1.0f, 1.0f, 1.0f), glm::vec3(1.0f, 1.0f, 1.0f), glm::vec3(1.0f, 1.0f, 1.0f) };
-
-			GPU_Geometry gpuGeom;
 
 
 			//================================================================================================================//
@@ -2187,7 +2213,7 @@ int main() {
 						controlPointVerts, controlPointCpu,
 						transformedVerts,
 						gpuGeom,
-						cross_section);
+						cross_section, numLoop);
 				}
 				else if (cross_section == 4) {
 					showCombined(cb,
