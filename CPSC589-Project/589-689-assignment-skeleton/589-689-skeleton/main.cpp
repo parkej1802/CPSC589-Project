@@ -38,7 +38,12 @@ bool showDraw = false;
 bool rendering3D = false;
 bool quit = false;
 bool xytoZero = false;
-int numLoop = 2;
+int numLoop = 0;
+int numFakeLoop = 0;
+int adjustPos = 0;
+int lapla = 0;
+bool changeValuePhase = false;
+
 
 CPU_Geometry grid;
 glm::vec3 red = glm::vec3(1, 0, 0);
@@ -1612,7 +1617,7 @@ void phaseCreateMesh(std::shared_ptr<MyCallbacks>& cb,
 	std::vector<std::vector<glm::vec3>>& controlPointVerts, CPU_Geometry& controlPointCpu,
 	std::vector<std::vector<glm::vec3>>& transformedVerts,
 	GPU_Geometry& gpuGeom,
-	int& cross_section, int numLoop) {
+	int& cross_section, int numLoop, int numFakeLoop, int lapla, int adjustPos) {
 
 	for (int i = 0; i < 3; i++) {
 		controlPointVerts[i] = get_control_points(lineVerts[i], 50);
@@ -1663,8 +1668,11 @@ void phaseCreateMesh(std::shared_ptr<MyCallbacks>& cb,
 
 	// generating 3D model starts here
 	Mesh front_mesh = get_front_mesh(cdt);
-	fake_loopSubdivision(front_mesh);
-	fake_loopSubdivision(front_mesh);
+
+	for (int i = 0; i < numFakeLoop; i++) {
+		fake_loopSubdivision(front_mesh);
+	}
+	
 
 	auto boundary = boundary_vertices(front_mesh);
 	generate3dMesh(front_mesh, boundary);
@@ -1680,8 +1688,17 @@ void phaseCreateMesh(std::shared_ptr<MyCallbacks>& cb,
 	*/
 
 	for (int i = 0; i < numLoop; i++) {
+		loopSubdivision(front_mesh, true);
+	}
+
+	for (int i = 0; i < adjustPos; i++) {
 		loopSubdivision(front_mesh, false);
 	}
+
+	for (int i = 0; i < lapla; i++) {
+		laplacian(front_mesh);
+	}
+
 	//saveMeshToOBJ(front_mesh, "C:/Users/dhktj/OneDrive/Desktop/after.obj");
 	saveMeshToOBJ(front_mesh, "./models/drawnModeloutput.obj");
 	//saveMeshToOBJ(front_mesh, "C:/Users/U/Documents/ImaginationModeling/589-689-3D-skeleton/models/output4.obj");
@@ -1750,8 +1767,7 @@ int main() {
 			std::unordered_map<std::string, ModelInfo> models;
 			//models.emplace("wall", ModelInfo("./models/back.obj"));
 			//models.emplace("Cow", ModelInfo("./models/spot/spot_triangulated.obj"));
-			models.emplace("toru", ModelInfo("./models/drawnModeloutput.obj"));
-			//models.emplace("Cow", ModelInfo("./models/output1.obj"));
+			models.emplace("Drawn 3D Object", ModelInfo("./models/drawnModeloutput.obj"));
 			models.emplace("Fish", ModelInfo("./models/blub/blub_triangulated.obj"));
 
 
@@ -1765,7 +1781,7 @@ int main() {
 			// We have to use .at() and .emplace() instead of "[]" notation.
 			// See: https://stackoverflow.com/questions/29826155/why-a-default-constructor-is-needed-using-unordered-map-and-tuple
 			std::unordered_map<std::string, Texture> textures;
-			textures.emplace("toru", Texture("./textures/blub/blub_texture.png", GL_LINEAR));
+			textures.emplace("Drawn 3D Object", Texture("./textures/blub/blub_texture.png", GL_LINEAR));
 			const std::string noTexName = "None";
 
 
@@ -1885,28 +1901,21 @@ int main() {
 					xytoZero = true;
 				}
 
+				if (ImGui::Button("Back to Change Value")) {
+					rendering3D = false;
+					changeValuePhase = true;
+					cross_section = 3;
+				}
+
+
 				if (ImGui::Button("Quit")) {
 					quit = true;
 				}
 
-				/*
-				if (loop) {
-					phaseCreateMesh(
-						cb,
-						lineVerts, lineCpu,
-						controlPointVerts, controlPointCpu,
-						transformedVerts,
-						gpuGeom,
-						cross_section, numLoop);
-					showCombined(cb,
-						lineVerts, lineCpu,
-						controlPointVerts, controlPointCpu,
-						transformedVerts,
-						gpuGeom,
-						cross_section);
-				}
+				
+				
 
-				*/
+				
 				// Framerate display, in case you need to debug performance.
 				ImGui::Text("Average %.1f ms/frame (%.1f fps)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
 				ImGui::End();
@@ -2119,10 +2128,17 @@ int main() {
 						else if (cross_section == 2 && lineVerts[2].empty()) {
 
 						}
+						else if (cross_section == 3 && changeValuePhase) {
+							cross_section++;
+							
+						}
+						else if (cross_section == 4 && changeValuePhase) {
+							cross_section++;
+							changeValuePhase = false;
+						}
 						else {
 							if (cross_section < 5) cross_section++;
 						}
-
 
 					}
 
@@ -2173,7 +2189,7 @@ int main() {
 
 				bool change = false; // Whether any ImGui variable's changed.
 
-				/*
+				
 				// Three functions that must be called each new frame.
 				ImGui_ImplOpenGL3_NewFrame();
 				ImGui_ImplGlfw_NewFrame();
@@ -2183,24 +2199,21 @@ int main() {
 
 				ImGui::Text("Sample text.");
 
-				change |= ImGui::SliderFloat("Point size", &pointSize, 1.f, 20.f);
+				change |= ImGui::SliderInt("Loop Subdivision", &numLoop, 0, 3);
 
-				change |= ImGui::ColorEdit3("New pt color", (float*)&color);
+				change |= ImGui::SliderInt("Adjust Position of Loop Position", &adjustPos, 0, 3);
 
-				change |= ImGui::Checkbox("Draw lines", &drawLines);
+				change |= ImGui::SliderInt("Fake Loop Subdivision", &numFakeLoop, 0, 2);
 
-				change |= ImGui::Checkbox("Draw lines", &drawLines);
+				change |= ImGui::SliderInt("Laplacian", &lapla, 0, 3);
 
-				if (ImGui::Button("clear pts")) {
-					change = true;
-					lineVerts[0].clear();
-				}
+	
 
 				ImGui::Text("Average %.1f ms/frame (%.1f fps)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
 
 				ImGui::End();
 				ImGui::Render();
-				*/
+				
 
 				shader.use();
 				gpuGeom.bind();
@@ -2242,6 +2255,24 @@ int main() {
 						gpuGeom,
 						cross_section);
 				}
+				else if (changeValuePhase && cross_section == 3) {
+					showCombined(cb,
+						lineVerts, lineCpu,
+						controlPointVerts, controlPointCpu,
+						transformedVerts,
+						gpuGeom,
+						cross_section);
+
+				}
+				else if (changeValuePhase && cross_section == 4) {
+					phaseCreateMesh(
+						cb,
+						lineVerts, lineCpu,
+						controlPointVerts, controlPointCpu,
+						transformedVerts,
+						gpuGeom,
+						cross_section, numLoop, numFakeLoop, lapla, adjustPos);
+				}
 				else if (cross_section == 3) {
 					phaseCreateMesh(
 						cb,
@@ -2249,7 +2280,9 @@ int main() {
 						controlPointVerts, controlPointCpu,
 						transformedVerts,
 						gpuGeom,
-						cross_section, numLoop);
+						cross_section, numLoop, numFakeLoop, lapla, adjustPos);
+					
+					
 				}
 				else if (cross_section == 4) {
 					showCombined(cb,
@@ -2258,6 +2291,7 @@ int main() {
 						transformedVerts,
 						gpuGeom,
 						cross_section);
+					
 				}
 				else if (cross_section == 5) {
 					rendering3D = true;
@@ -2274,7 +2308,7 @@ int main() {
 				glDisable(GL_FRAMEBUFFER_SRGB); // disable sRGB for things like imgui
 				glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
 
-				//ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+				ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
 				window.swapBuffers();
 
