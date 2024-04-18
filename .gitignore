@@ -1,8 +1,9 @@
 # Own stuff here
-build
+#build
 compile_commands.json
 CMakeSettings.json
 
+!out/build/x64-Debug/
 # Created by https://www.gitignore.io/api/visualstudio
 
 ### VisualStudio ###
@@ -21,11 +22,11 @@ CMakeSettings.json
 *.userprefs
 
 # Build results
-[Dd]ebug/
+#[Dd]ebug/
 [Dd]ebugPublic/
 [Rr]elease/
 [Rr]eleases/
-x64/
+#x64/
 x86/
 bld/
 [Bb]in/
@@ -194,17 +195,6 @@ BundleArtifacts/
 Package.StoreAssociation.xml
 _pkginfo.txt
 
-.vs/CMake Overview
-.vs/CPSC589-Project/v16/.suo
-.vs/CPSC589-Project/v16/Browse.VC.db
-.vs/CPSC589-Project/v16/Browse.VC.db-shm
-.vs/CPSC589-Project/v16/Browse.VC.db-wal
-.vs/CPSC589-Project/v16/Browse.VC.opendb
-.vs/CPSC589-Project/v16/ipch/AutoPCH/22e8a55454423b56/MAIN.ipch
-.vs/CPSC589-Project/v16/ipch/AutoPCH/86afb711a92dc03c/MAIN.ipch
-.vs/ProjectSettings.json
-.vs/slnx.sqlite
-.vs/VSWorkspaceState.json
 # Visual Studio cache files
 # files ending in .cache can be ignored
 *.[Cc]ache
