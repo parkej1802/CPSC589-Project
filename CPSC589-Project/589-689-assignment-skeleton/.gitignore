@@ -1,8 +1,9 @@
 # Own stuff here
-build
+#build
 compile_commands.json
 CMakeSettings.json
 
+!out/build/x64-Debug/
 # Created by https://www.gitignore.io/api/visualstudio
 
 ### VisualStudio ###
@@ -21,11 +22,11 @@ CMakeSettings.json
 *.userprefs
 
 # Build results
-[Dd]ebug/
+#[Dd]ebug/
 [Dd]ebugPublic/
 [Rr]elease/
 [Rr]eleases/
-x64/
+#x64/
 x86/
 bld/
 [Bb]in/
