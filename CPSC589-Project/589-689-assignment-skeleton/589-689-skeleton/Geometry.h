@@ -34,7 +34,6 @@ public:
 	void setVerts(const std::vector<glm::vec3>& verts);
 	void setCols(const std::vector<glm::vec3>& cols);
 
-
 private:
 	// note: due to how OpenGL works, vao needs to be 
 	// defined and initialized before the vertex buffers

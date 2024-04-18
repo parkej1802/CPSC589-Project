@@ -35,7 +35,7 @@ float PI = 3.14159265359;
 bool clear = false;
 bool drew = false;
 bool showDraw = false;
-bool rendering3D = false;
+bool rendering3D = true;
 bool quit = false;
 bool xytoZero = false;
 int numLoop = 2;
@@ -174,6 +174,14 @@ public:
 
 	virtual void keyCallback(int key, int scancode, int action, int mods) {
 		if (rendering3D) {
+
+			if (xytoZero) {
+				x_angle = 0.0f;
+				y_angle = 0.0f;
+				shader.recompile();
+				updateUniformLocations();
+				xytoZero = false;
+			}
 			
 			if (key == GLFW_KEY_R && action == GLFW_PRESS) {
 				x_angle = 0.0f;
@@ -1781,7 +1789,7 @@ int main() {
 
 
 			// RENDER LOOP
-			while (!window.shouldClose()) {
+			while (rendering3D && !quit) {
 				glfwPollEvents();
 
 
@@ -1864,8 +1872,24 @@ int main() {
 				change |= ImGui::ColorEdit3("Light's colour", glm::value_ptr(lightCol));
 				change |= ImGui::SliderFloat("Ambient strength", &ambientStrength, 0.0f, 1.f);
 				change |= ImGui::Checkbox("Simple wireframe", &simpleWireframe);
-				loop |= ImGui::SliderInt("Number of Loop Subdivision", &numLoop, 0, 5);
+				//loop |= ImGui::SliderInt("Number of Loop Subdivision", &numLoop, 0, 5);
+				if (ImGui::Button("Back to Draw")) {
+					rendering3D = false;
+					for (int i = 0; i < 3; i++) {
+						lineVerts[i].clear();
+						transformedVerts[i].clear();
+						controlPointVerts[i].clear();
+					}
+					cross_section = 0;
+					Eulerian_Trail = 0;
+					xytoZero = true;
+				}
 
+				if (ImGui::Button("Quit")) {
+					quit = true;
+				}
+
+				/*
 				if (loop) {
 					phaseCreateMesh(
 						cb,
@@ -1882,6 +1906,7 @@ int main() {
 						cross_section);
 				}
 
+				*/
 				// Framerate display, in case you need to debug performance.
 				ImGui::Text("Average %.1f ms/frame (%.1f fps)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
 				ImGui::End();
@@ -1912,7 +1937,6 @@ int main() {
 
 				window.swapBuffers();
 			}
-			quit = true;
 		}
 
 		else if (!rendering3D) {
@@ -2236,6 +2260,7 @@ int main() {
 						cross_section);
 				}
 				glDisable(GL_FRAMEBUFFER_SRGB); // disable sRGB for things like imgui
+				glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
 
 				//ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 

@@ -37,7 +37,6 @@ void GPU_Geometry::setCols(const std::vector<glm::vec3>& cols) {
 
 
 
-
 /*
 #include "Geometry.h"
 
