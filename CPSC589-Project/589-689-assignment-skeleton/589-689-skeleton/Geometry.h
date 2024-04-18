@@ -41,6 +41,7 @@ private:
 
 	VertexBuffer vertBuffer;
 	VertexBuffer colBuffer;
+
 };
 
 

@@ -22,7 +22,7 @@
 namespace Log {
 	namespace ansi = vivid::ansi;
 	template <typename S1, typename S2, typename S3, typename... Args>
-	void _log(const S1 &prefix, const S2 &c, const S3 &format_str, Args&&... args) {
+	void _log(const S1& prefix, const S2& c, const S3& format_str, Args&&... args) {
 		fmt::print(
 			"{}[{}]{}: {}\n",
 			c,
@@ -34,26 +34,26 @@ namespace Log {
 
 
 	template <typename S, typename... Args>
-	void debug(const S &format_str, Args&&... args) {
+	void debug(const S& format_str, Args&&... args) {
 		_log("DEBUG", ansi::green, format_str, args...);
 	}
 
 	template <typename S, typename... Args>
-	void info(const S &format_str, Args&&... args) {
+	void info(const S& format_str, Args&&... args) {
 		_log("INFO", ansi::white, format_str, args...);
 	}
 
 	template <typename S, typename... Args>
-	void warning(const S &format_str, Args&&... args) {
+	void warning(const S& format_str, Args&&... args) {
 		_log("WARN", ansi::yellow, format_str, args...);
 	}
 	template <typename S, typename... Args>
-	void warn(const S &format_str, Args&&... args) {
+	void warn(const S& format_str, Args&&... args) {
 		_log("WARN", ansi::yellow, format_str, args...);
 	}
 
 	template <typename S, typename... Args>
-	void error(const S &format_str, Args&&... args) {
+	void error(const S& format_str, Args&&... args) {
 		_log("ERROR", ansi::red, format_str, args...);
 	}
 

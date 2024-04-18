@@ -47,9 +47,10 @@ set(FMT_TES OFF CACHE BOOL "" FORCE)
 add_subdirectory(thirdparty/fmt-7.0.3)
 set(LIBRARIES ${LIBRARIES} fmt::fmt)
 include_directories(SYSTEM thirdparty/fmt-7.0.3/include)
-
+include_directories(SYSTEM thirdparty/stb-2.26)
 include_directories(SYSTEM thirdparty/imgui-1.89.2)
 
+include_directories(thirdparty/tinyobjloader-2.0.0rc10)
 
 find_package(OpenGL REQUIRED)
 set(LIBRARIES ${LIBRARIES} ${OPENGL_gl_LIBRARY})
@@ -108,7 +109,23 @@ foreach(file ${files})
 	configure_file(${file} shaders/${name})
 endforeach()
 
-add_executable(${APP_NAME} ${SOURCES} "589-689-skeleton/Camera.cpp" "589-689-skeleton/Camera.h")
+
+# Do the same for textures.
+file(GLOB_RECURSE files_t textures/*)
+foreach(file ${files_t})
+	file(RELATIVE_PATH fileName ${CMAKE_CURRENT_SOURCE_DIR}/textures/ ${file})
+	configure_file(${file} textures/${fileName} COPYONLY)
+endforeach()
+
+# Do the same for 3D model files.
+file(GLOB_RECURSE files_m models/*)
+foreach(file ${files_m})
+	file(RELATIVE_PATH fileName ${CMAKE_CURRENT_SOURCE_DIR}/models/ ${file})
+	configure_file(${file} models/${fileName} COPYONLY)
+endforeach()
+
+
+add_executable(${APP_NAME} ${SOURCES} "589-689-skeleton/Camera.cpp" "589-689-skeleton/Camera.h"   "589-689-skeleton/GeomLoaderForOBJ.cpp" "589-689-skeleton/GeomLoaderForOBJ.h" "589-689-skeleton/Texture.cpp" "589-689-skeleton/Texture.h" "589-689-skeleton/Geometry3D.cpp" "589-689-skeleton/Geometry3D.h")
 target_include_directories(${APP_NAME} PRIVATE ${INCLUDES})
 target_link_libraries(${APP_NAME} ${LIBRARIES})
 target_compile_definitions(${APP_NAME} PRIVATE ${DEFINITIONS})

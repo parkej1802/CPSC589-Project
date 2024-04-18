@@ -5,10 +5,24 @@
 #include <utility>
 
 
+/*
+GPU_Geometry::GPU_Geometry()
+	: vao()
+	, vertBuffer(0, 3, GL_FLOAT)
+
+	, uvBuffer(1, 2, GL_FLOAT)
+	, normalsBuffer(2, 3, GL_FLOAT)
+	, colBuffer(3, 3, GL_FLOAT)
+
+
+
+{}
+*/
 GPU_Geometry::GPU_Geometry()
 	: vao()
 	, vertBuffer(0, 3, GL_FLOAT)
 	, colBuffer(1, 3, GL_FLOAT)
+
 {}
 
 
