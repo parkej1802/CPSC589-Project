@@ -1632,12 +1632,12 @@ void phaseCreateMesh(std::shared_ptr<MyCallbacks>& cb,
 	generate3dMesh(front_mesh, boundary);
 	inflate_front_back(front_mesh, transformedVerts[1], transformedVerts[2]);
 
-	for (int i = 0; i < numLoop; i++) {
-		loopSubdivision(front_mesh, true);
-	}
-
 	for (int i = 0; i < adjustPos; i++) {
 		loopSubdivision(front_mesh, false);
+	}
+
+	for (int i = 0; i < numLoop; i++) {
+		loopSubdivision(front_mesh, true);
 	}
 
 	for (int i = 0; i < lapla; i++) {
